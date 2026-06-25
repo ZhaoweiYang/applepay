@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#000000" />
+<title>Apple Pay 可用卡检测</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #d2d2d7;
+    --accent: #0071e3;
+    --ok: #1a7f37;
+    --ok-bg: #e8f7ec;
+    --warn: #9a6700;
+    --warn-bg: #fff5d6;
+    --bad: #c1121f;
+    --bad-bg: #fdecee;
+    --unknown: #5b5bd6;
+    --unknown-bg: #ecedff;
+    --radius: 18px;
+    --shadow: 0 2px 20px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card: #1c1c1e;
+      --text: #f5f5f7;
+      --muted: #98989d;
+      --line: #38383a;
+      --ok-bg: #11321b;
+      --warn-bg: #3a2f06;
+      --bad-bg: #3a0d11;
+      --unknown-bg: #1c1c44;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+      "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+  header { text-align: center; margin-bottom: 28px; }
+  .logo {
+    width: 56px; height: 56px; margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    background: #000; border-radius: 14px; color: #fff;
+  }
+  @media (prefers-color-scheme: dark) { .logo { background: #fff; color: #000; } }
+  h1 { font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -.02em; }
+  header p { color: var(--muted); margin: 0; font-size: 15px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px;
+    margin-bottom: 18px;
+  }
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+  input[type="text"] {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+  }
+  input[type="text"]:focus { border-color: var(--accent); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .hint code {
+    background: var(--bg); padding: 1px 6px; border-radius: 6px;
+    border: 1px solid var(--line); font-size: 12px;
+  }
+  button {
+    width: 100%;
+    margin-top: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity .15s, transform .05s;
+  }
+  button:hover { opacity: .9; }
+  button:active { transform: scale(.99); }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .result { display: none; }
+  .result.show { display: block; }
+  .badge {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px; border-radius: 14px; margin-bottom: 16px;
+  }
+  .badge .icon { font-size: 30px; line-height: 1; }
+  .badge .t { font-size: 19px; font-weight: 700; margin: 0; }
+  .badge .d { font-size: 14px; margin: 4px 0 0; opacity: .9; }
+  .tone-ok      { background: var(--ok-bg);      color: var(--ok); }
+  .tone-warn    { background: var(--warn-bg);    color: var(--warn); }
+  .tone-bad     { background: var(--bad-bg);     color: var(--bad); }
+  .tone-unknown { background: var(--unknown-bg); color: var(--unknown); }
+
+  .kv { margin-top: 4px; }
+  .kv .row {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding: 11px 0; border-top: 1px solid var(--line); font-size: 14px;
+  }
+  .kv .row:first-child { border-top: none; }
+  .kv .row .k { color: var(--muted); }
+  .kv .row .v { font-weight: 600; text-align: right; word-break: break-word; }
+  .v.yes { color: var(--ok); }
+  .v.no  { color: var(--bad); }
+
+  details { margin-top: 14px; }
+  summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 600; }
+  pre {
+    margin: 10px 0 0; padding: 12px; background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px;
+    font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
+    color: var(--muted);
+  }
+  .ref h2 { font-size: 16px; margin: 0 0 12px; }
+  .ref ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+  .ref li { margin-bottom: 8px; }
+  .ref strong { color: var(--text); }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 28px; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+      </svg>
+    </div>
+    <h1>Apple Pay 可用卡检测</h1>
+    <p>使用 <code>ApplePaySession.applePayCapabilities</code> 判断当前设备是否有可用支付卡</p>
+  </header>
+
+  <div class="card">
+    <label for="merchant">Apple Pay 商户标识符 (Merchant Identifier)</label>
+    <input type="text" id="merchant" placeholder="merchant.com.example.store" autocomplete="off" autocapitalize="off" spellcheck="false" />
+    <p class="hint">
+      需要在 Apple Developer 注册的真实商户 ID，例如 <code>merchant.com.example.app</code>。
+      系统会用它来判断钱包中是否存在与该商户匹配的可用卡。会自动保存在本地浏览器中。
+    </p>
+    <button id="check">检测可用卡</button>
+  </div>
+
+  <div class="card result" id="result">
+    <div class="badge" id="badge">
+      <span class="icon" id="badgeIcon"></span>
+      <div>
+        <p class="t" id="badgeTitle"></p>
+        <p class="d" id="badgeDesc"></p>
+      </div>
+    </div>
+    <div class="kv" id="kv"></div>
+    <details>
+      <summary>查看原始检测数据</summary>
+      <pre id="raw"></pre>
+    </details>
+  </div>
+
+  <div class="card ref">
+    <h2>paymentCredentialStatus 取值说明</h2>
+    <ul>
+      <li><strong>paymentCredentialsAvailable</strong> — 设备支持 Apple Pay，且钱包中<strong>有可用卡</strong>。可直接显示 Apple Pay 按钮。</li>
+      <li><strong>paymentCredentialsUnavailable</strong> — 支持 Apple Pay，但<strong>没有可用卡</strong>。可显示按钮并引导用户添加卡片。</li>
+      <li><strong>paymentCredentialStatusUnknown</strong> — 无法确定卡片状态（如被「屏幕使用时间」限制）。仍建议显示按钮。</li>
+      <li><strong>applePayUnsupported</strong> — 当前设备<strong>不支持</strong> Apple Pay，不应显示按钮。</li>
+    </ul>
+  </div>
+
+  <footer>
+    <p>注意：相关 API 仅在 <strong>Apple 设备的 Safari</strong> 中、且通过 <strong>HTTPS</strong> 访问时可用。<br/>
+    本页面不发送任何网络请求，所有检测均在本地完成。</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "applePayMerchantId";
+  var STATUS_INFO = {
+    paymentCredentialsAvailable: {
+      tone: "ok", icon: "✅", title: "有可用卡",
+      desc: "设备支持 Apple Pay，且钱包中至少有一张可用的支付卡。"
+    },
+    paymentCredentialsUnavailable: {
+      tone: "warn", icon: "⚠️", title: "无可用卡",
+      desc: "设备支持 Apple Pay，但钱包中没有可用的支付卡。可引导用户添加卡片。"
+    },
+    paymentCredentialStatusUnknown: {
+      tone: "unknown", icon: "❓", title: "状态未知",
+      desc: "无法确定卡片状态（可能被限制）。通常仍建议显示 Apple Pay 按钮。"
+    },
+    applePayUnsupported: {
+      tone: "bad", icon: "❌", title: "不支持 Apple Pay",
+      desc: "当前设备不支持 Apple Pay，不应显示 Apple Pay 按钮。"
+    }
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var merchantInput = $("merchant");
+  var checkBtn = $("check");
+
+  // 还原本地保存的商户 ID
+  try {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) merchantInput.value = saved;
+  } catch (e) {}
+
+  function platformName() {
+    var ua = navigator.userAgent || "";
+    var plat = navigator.platform || "";
+    if (/iPhone|iPad|iPod/.test(ua)) return "iOS / iPadOS";
+    if (/Mac/.test(plat) || /Macintosh/.test(ua)) return "macOS";
+    if (/Android/.test(ua)) return "Android";
+    if (/Win/.test(plat)) return "Windows";
+    return plat || "未知";
+  }
+
+  function isSafari() {
+    var ua = navigator.userAgent || "";
+    return /Safari/.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/.test(ua);
+  }
+
+  // 核心检测逻辑
+  async function detect(merchantId) {
+    var info = {
+      平台: platformName(),
+      浏览器: isSafari() ? "Safari" : "非 Safari",
+      安全上下文HTTPS: !!window.isSecureContext,
+      "ApplePaySession 可用": typeof window.ApplePaySession !== "undefined",
+      "applePayCapabilities 可用": false,
+      "canMakePayments 可用": false
+    };
+
+    if (typeof window.ApplePaySession === "undefined") {
+      return {
+        kind: "no-support", info: info,
+        message: "当前浏览器中没有 ApplePaySession 接口，无法检测。请在 Apple 设备的 Safari 中、通过 HTTPS 打开本页面。"
+      };
+    }
+
+    info["applePayCapabilities 可用"] =
+      typeof window.ApplePaySession.applePayCapabilities === "function";
+    info["canMakePayments 可用"] =
+      typeof window.ApplePaySession.canMakePayments === "function";
+
+    // 首选：新版 applePayCapabilities(merchantId) → paymentCredentialStatus
+    if (info["applePayCapabilities 可用"]) {
+      try {
+        var caps = await window.ApplePaySession.applePayCapabilities(merchantId);
+        return { kind: "capabilities", status: caps.paymentCredentialStatus, raw: caps, info: info };
+      } catch (err) {
+        info["applePayCapabilities 错误"] = String(err && err.message ? err.message : err);
+        // 继续回退
+      }
+    }
+
+    // 回退：canMakePayments() + canMakePaymentsWithActiveCard(merchantId)
+    var deviceSupported = false;
+    try { deviceSupported = window.ApplePaySession.canMakePayments(); } catch (e) {}
+
+    if (!deviceSupported) {
+      return { kind: "fallback", deviceSupported: false, activeCard: false, info: info };
+    }
+
+    if (typeof window.ApplePaySession.canMakePaymentsWithActiveCard === "function") {
+      try {
+        var active = await window.ApplePaySession.canMakePaymentsWithActiveCard(merchantId);
+        return { kind: "fallback", deviceSupported: true, activeCard: active, info: info };
+      } catch (err2) {
+        info["canMakePaymentsWithActiveCard 错误"] = String(err2 && err2.message ? err2.message : err2);
+      }
+    }
+    return { kind: "fallback", deviceSupported: true, activeCard: null, info: info };
+  }
+
+  // ---- 渲染 ----
+  function showBadge(tone, icon, title, desc) {
+    var badge = $("badge");
+    badge.className = "badge tone-" + tone;
+    $("badgeIcon").textContent = icon;
+    $("badgeTitle").textContent = title;
+    $("badgeDesc").textContent = desc;
+  }
+
+  function renderKV(rows) {
+    var html = "";
+    rows.forEach(function (r) {
+      var cls = r.cls ? " " + r.cls : "";
+      html += '<div class="row"><span class="k">' + r.k +
+              '</span><span class="v' + cls + '">' + r.v + "</span></div>";
+    });
+    $("kv").innerHTML = html;
+  }
+
+  function infoRows(info) {
+    var rows = [];
+    Object.keys(info).forEach(function (k) {
+      var val = info[k];
+      var display = val, cls = "";
+      if (val === true) { display = "是"; cls = "yes"; }
+      else if (val === false) { display = "否"; cls = "no"; }
+      rows.push({ k: k, v: display, cls: cls });
+    });
+    return rows;
+  }
+
+  function render(res) {
+    var resultEl = $("result");
+    resultEl.classList.add("show");
+    $("raw").textContent = JSON.stringify(res, null, 2);
+
+    if (res.kind === "no-support") {
+      showBadge("bad", "❌", "无法检测", res.message);
+      renderKV(infoRows(res.info));
+      return;
+    }
+
+    if (res.kind === "capabilities") {
+      var meta = STATUS_INFO[res.status] || {
+        tone: "unknown", icon: "❓", title: res.status || "未知返回值",
+        desc: "收到未在文档列出的返回值。"
+      };
+      showBadge(meta.tone, meta.icon, meta.title, meta.desc);
+      var rows = [
+        { k: "检测方式", v: "applePayCapabilities" },
+        { k: "paymentCredentialStatus", v: res.status },
+        { k: "钱包中有可用卡", v: res.status === "paymentCredentialsAvailable" ? "是" : (res.status === "paymentCredentialsUnavailable" ? "否" : "未知"),
+          cls: res.status === "paymentCredentialsAvailable" ? "yes" : (res.status === "paymentCredentialsUnavailable" ? "no" : "") }
+      ].concat(infoRows(res.info));
+      renderKV(rows);
+      return;
+    }
+
+    // fallback
+    if (!res.deviceSupported) {
+      showBadge("bad", "❌", "不支持 Apple Pay", "设备 canMakePayments() 返回 false，无法使用 Apple Pay。");
+    } else if (res.activeCard === true) {
+      showBadge("ok", "✅", "有可用卡", "通过 canMakePaymentsWithActiveCard 检测到至少一张可用卡。");
+    } else if (res.activeCard === false) {
+      showBadge("warn", "⚠️", "无可用卡", "设备支持 Apple Pay，但未检测到可用卡。");
+    } else {
+      showBadge("unknown", "❓", "支持但卡状态未知", "设备支持 Apple Pay，但无法确定是否有可用卡。");
+    }
+    var fbRows = [
+      { k: "检测方式", v: "canMakePayments 回退方案" },
+      { k: "设备支持 Apple Pay", v: res.deviceSupported ? "是" : "否", cls: res.deviceSupported ? "yes" : "no" },
+      { k: "钱包中有可用卡", v: res.activeCard === true ? "是" : (res.activeCard === false ? "否" : "未知"),
+        cls: res.activeCard === true ? "yes" : (res.activeCard === false ? "no" : "") }
+    ].concat(infoRows(res.info));
+    renderKV(fbRows);
+  }
+
+  async function run() {
+    var merchantId = merchantInput.value.trim();
+    if (!merchantId) {
+      merchantInput.focus();
+      alert("请先填写 Apple Pay 商户标识符（Merchant Identifier）。");
+      return;
+    }
+    try { localStorage.setItem(STORAGE_KEY, merchantId); } catch (e) {}
+
+    checkBtn.disabled = true;
+    checkBtn.textContent = "检测中…";
+    try {
+      var res = await detect(merchantId);
+      render(res);
+    } catch (err) {
+      $("result").classList.add("show");
+      showBadge("bad", "❌", "检测出错", String(err && err.message ? err.message : err));
+      renderKV([]);
+      $("raw").textContent = String(err && err.stack ? err.stack : err);
+    } finally {
+      checkBtn.disabled = false;
+      checkBtn.textContent = "检测可用卡";
+    }
+  }
+
+  checkBtn.addEventListener("click", run);
+  merchantInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") run();
+  });
+})();
+</script>
+</body>
+</html>
