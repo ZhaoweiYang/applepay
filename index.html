@@ -103,6 +103,14 @@
   button:hover { opacity: .9; }
   button:active { transform: scale(.99); }
   button:disabled { opacity: .5; cursor: default; }
+  button.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--line);
+    margin-top: 10px;
+    font-size: 15px;
+    padding: 12px;
+  }
 
   .result { display: none; }
   .result.show { display: block; }
@@ -165,6 +173,7 @@
       系统会用它来判断钱包中是否存在与该商户匹配的可用卡。会自动保存在本地浏览器中。
     </p>
     <button id="check">检测可用卡</button>
+    <button id="checkDevice" class="secondary">仅检测设备是否支持（无需商户 ID）</button>
   </div>
 
   <div class="card result" id="result">
@@ -225,6 +234,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var merchantInput = $("merchant");
   var checkBtn = $("check");
+  var checkDeviceBtn = $("checkDevice");
 
   // 还原本地保存的商户 ID
   try {
@@ -300,6 +310,24 @@
     return { kind: "fallback", deviceSupported: true, activeCard: null, info: info };
   }
 
+  // 仅检测设备支持（不需要商户 ID）
+  function detectDevice() {
+    var info = {
+      平台: platformName(),
+      浏览器: isSafari() ? "Safari" : "非 Safari",
+      安全上下文HTTPS: !!window.isSecureContext,
+      "ApplePaySession 可用": typeof window.ApplePaySession !== "undefined"
+    };
+    if (typeof window.ApplePaySession === "undefined") {
+      return { kind: "device", deviceSupported: false, noSession: true, info: info };
+    }
+    var supported = false;
+    try { supported = !!window.ApplePaySession.canMakePayments(); } catch (e) {
+      info["canMakePayments 错误"] = String(e && e.message ? e.message : e);
+    }
+    return { kind: "device", deviceSupported: supported, info: info };
+  }
+
   // ---- 渲染 ----
   function showBadge(tone, icon, title, desc) {
     var badge = $("badge");
@@ -339,6 +367,22 @@
     if (res.kind === "no-support") {
       showBadge("bad", "❌", "无法检测", res.message);
       renderKV(infoRows(res.info));
+      return;
+    }
+
+    if (res.kind === "device") {
+      if (res.deviceSupported) {
+        showBadge("ok", "✅", "设备支持 Apple Pay",
+          "canMakePayments() 返回 true。注意：这只说明设备/浏览器支持，未检测钱包中是否有可用卡（需商户 ID）。");
+      } else {
+        showBadge("bad", "❌", "设备不支持 Apple Pay",
+          res.noSession ? "当前浏览器没有 ApplePaySession 接口（请用 Apple 设备的 Safari）。"
+                        : "canMakePayments() 返回 false。");
+      }
+      renderKV([
+        { k: "检测方式", v: "canMakePayments（无需商户 ID）" },
+        { k: "设备支持 Apple Pay", v: res.deviceSupported ? "是" : "否", cls: res.deviceSupported ? "yes" : "no" }
+      ].concat(infoRows(res.info)));
       return;
     }
 
@@ -402,7 +446,22 @@
     }
   }
 
+  function runDevice() {
+    checkDeviceBtn.disabled = true;
+    try {
+      render(detectDevice());
+    } catch (err) {
+      $("result").classList.add("show");
+      showBadge("bad", "❌", "检测出错", String(err && err.message ? err.message : err));
+      renderKV([]);
+      $("raw").textContent = String(err && err.stack ? err.stack : err);
+    } finally {
+      checkDeviceBtn.disabled = false;
+    }
+  }
+
   checkBtn.addEventListener("click", run);
+  checkDeviceBtn.addEventListener("click", runDevice);
   merchantInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter") run();
   });
