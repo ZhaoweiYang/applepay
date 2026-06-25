@@ -174,6 +174,7 @@
     </p>
     <button id="check">检测可用卡</button>
     <button id="checkDevice" class="secondary">仅检测设备是否支持（无需商户 ID）</button>
+    <button id="setup" class="secondary">添加 / 设置 Apple Pay 卡片</button>
   </div>
 
   <div class="card result" id="result">
@@ -235,6 +236,7 @@
   var merchantInput = $("merchant");
   var checkBtn = $("check");
   var checkDeviceBtn = $("checkDevice");
+  var setupBtn = $("setup");
 
   // 还原本地保存的商户 ID
   try {
@@ -460,8 +462,53 @@
     }
   }
 
+  // 唤起原生「添加到钱包 / 设置 Apple Pay」面板
+  // 注意：openPaymentSetup 必须在用户手势中、且调用前不能有任何 await，否则会被拒绝
+  function runSetup() {
+    if (typeof window.ApplePaySession === "undefined" ||
+        typeof window.ApplePaySession.openPaymentSetup !== "function") {
+      alert("当前环境不支持唤起 Apple Pay 设置。请在 Apple 设备的 Safari 中、通过 HTTPS 打开本页面。");
+      return;
+    }
+    var merchantId = merchantInput.value.trim();
+    if (!merchantId) {
+      merchantInput.focus();
+      alert("请先填写 Apple Pay 商户标识符（Merchant Identifier）。");
+      return;
+    }
+    try { localStorage.setItem(STORAGE_KEY, merchantId); } catch (e) {}
+
+    setupBtn.disabled = true;
+    setupBtn.textContent = "正在打开…";
+    // 不要在此之前 await，直接调用以保留用户手势
+    var promise = window.ApplePaySession.openPaymentSetup(merchantId);
+    Promise.resolve(promise).then(function (ok) {
+      $("result").classList.add("show");
+      if (ok) {
+        showBadge("ok", "✅", "已完成卡片设置", "openPaymentSetup 返回 true，用户已在钱包中完成添加/设置。");
+      } else {
+        showBadge("warn", "⚠️", "未完成设置", "openPaymentSetup 返回 false，用户取消或未完成添加。");
+      }
+      renderKV([
+        { k: "操作", v: "openPaymentSetup（唤起添加到钱包）" },
+        { k: "结果", v: ok ? "成功" : "取消/未完成", cls: ok ? "yes" : "no" }
+      ]);
+      $("raw").textContent = JSON.stringify(
+        { action: "openPaymentSetup", merchantId: merchantId, success: !!ok }, null, 2);
+    }).catch(function (err) {
+      $("result").classList.add("show");
+      showBadge("bad", "❌", "无法打开设置", String(err && err.message ? err.message : err));
+      renderKV([{ k: "操作", v: "openPaymentSetup" }]);
+      $("raw").textContent = String(err && err.stack ? err.stack : err);
+    }).then(function () {
+      setupBtn.disabled = false;
+      setupBtn.textContent = "添加 / 设置 Apple Pay 卡片";
+    });
+  }
+
   checkBtn.addEventListener("click", run);
   checkDeviceBtn.addEventListener("click", runDevice);
+  setupBtn.addEventListener("click", runSetup);
   merchantInput.addEventListener("keydown", function (e) {
     if (e.key === "Enter") run();
   });
