@@ -1,0 +1,12 @@
+REPLACE_THIS_FILE_WITH_THE_ONE_DOWNLOADED_FROM_APPLE
+
+在 Apple Developer 后台为 Merchant ID (merchant.com.example.CoinDecision)
+注册域名 daomessage.com 时，会让你「Download」一个名为
+apple-developer-merchantid-domain-association 的文件。
+
+请用那个文件的内容【完整覆盖】本文件（文件名保持不变、不要加扩展名），
+然后 commit + push。之后该验证文件会出现在：
+
+  https://daomessage.com/.well-known/apple-developer-merchantid-domain-association
+
+再回 Apple 后台点 Verify 即可。

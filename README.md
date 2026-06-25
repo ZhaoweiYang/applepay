@@ -47,11 +47,48 @@ python3 -m http.server 8000
 > 仓库根目录的 `.nojekyll` 文件会让 Pages 跳过 Jekyll，直接原样提供静态文件。
 > 如果以后想从 `main` 分支发布，把代码合并到 `main` 后，在上面第 3 步选择 `main` 分支即可。
 
+## 绑定自定义域名 + Apple Pay 域名验证
+
+要让 `applePayCapabilities` 返回**真实**的可用卡结果，调用页面的域名必须在对应 Merchant ID 下注册并通过验证。GitHub 项目页的子路径（`*.github.io/applepay/`）无法在域名根目录放验证文件，所以这里绑定自定义域名 **`daomessage.com`**。
+
+### 1. 配置 DNS（在 `daomessage.com` 的域名服务商处）
+
+顶级域名用 A 记录指向 GitHub Pages：
+
+```
+A   @   185.199.108.153
+A   @   185.199.109.153
+A   @   185.199.110.153
+A   @   185.199.111.153
+```
+
+（可选，IPv6 AAAA：`2606:50c0:8000::153` / `8001::153` / `8002::153` / `8003::153`；
+若想同时支持 `www`，加一条 `CNAME www zhaoweiyang.github.io`。）
+
+### 2. 在 GitHub 绑定域名
+
+仓库 **Settings → Pages → Custom domain** 填 `daomessage.com` → Save；DNS 生效后勾选 **Enforce HTTPS**。
+（仓库已含 `CNAME` 文件，内容为 `daomessage.com`。）绑定后站点根地址就是 `https://daomessage.com/`。
+
+### 3. 在 Apple 注册并验证域名
+
+1. Apple Developer → Identifiers → 选中 `merchant.com.example.CoinDecision`。
+2. **Merchant Domains → Add Domain** 填 `daomessage.com`。
+3. 点 **Download**，得到 `apple-developer-merchantid-domain-association` 文件。
+4. 用它的内容**完整覆盖**本仓库的
+   `.well-known/apple-developer-merchantid-domain-association`（文件名不变、不要加扩展名），commit + push。
+5. 确认 `https://daomessage.com/.well-known/apple-developer-merchantid-domain-association` 能打开后，回 Apple 点 **Verify**。
+6. （完整支付流程还需创建 Payment Processing / Merchant Identity 证书。）
+
+完成后在页面填 `merchant.com.example.CoinDecision` 检测即可。注意：生产环境下已注册商户有时会返回 `paymentCredentialStatusUnknown`（未知），属 Apple 已知行为，并不代表没卡。
+
 ## 文件结构
 
 ```
 .
-├── index.html   # 全部页面与检测逻辑（无外部依赖）
-├── .nojekyll    # 跳过 Jekyll 处理
+├── index.html                                        # 全部页面与检测逻辑（无外部依赖）
+├── .nojekyll                                         # 跳过 Jekyll 处理（同时让 .well-known 可被托管）
+├── CNAME                                             # 自定义域名 daomessage.com
+├── .well-known/apple-developer-merchantid-domain-association  # Apple 域名验证文件（占位，待替换）
 └── README.md
 ```
