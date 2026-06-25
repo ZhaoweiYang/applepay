@@ -37,23 +37,21 @@ python3 -m http.server 8000
 
 ## 部署到 GitHub Pages
 
-本仓库已包含 GitHub Actions 工作流 `.github/workflows/deploy.yml`，推送到 `claude/zen-mendel-wquruq` 分支后会自动构建并部署。
-
-**首次需要手动开启 Pages：**
+本站是纯静态页面，使用 GitHub Pages 的 **「Deploy from a branch」** 方式直接托管，无需任何构建流程：
 
 1. 打开仓库 **Settings → Pages**。
-2. 在 **Build and deployment → Source** 中选择 **GitHub Actions**。
-3. 回到 **Actions** 标签页，确认 “Deploy to GitHub Pages” 工作流运行成功。
-4. 几分钟后即可通过 `https://zhaoweiyang.github.io/applepay/` 访问。
+2. 在 **Build and deployment → Source** 中选择 **Deploy from a branch**。
+3. **Branch** 选择 `claude/zen-mendel-wquruq`，目录选择 **`/ (root)`**，点击 **Save**。
+4. 等待一两分钟，GitHub 自动完成发布后，即可访问 `https://zhaoweiyang.github.io/applepay/`。
 
-> 如果希望从 `main` 分支部署，把工作流 `on.push.branches` 改成 `main` 并将代码合并过去即可。
+> 仓库根目录的 `.nojekyll` 文件会让 Pages 跳过 Jekyll，直接原样提供静态文件。
+> 如果以后想从 `main` 分支发布，把代码合并到 `main` 后，在上面第 3 步选择 `main` 分支即可。
 
 ## 文件结构
 
 ```
 .
-├── index.html                  # 全部页面与检测逻辑（无外部依赖）
-├── .nojekyll                   # 跳过 Jekyll 处理
-├── .github/workflows/deploy.yml# GitHub Pages 部署工作流
+├── index.html   # 全部页面与检测逻辑（无外部依赖）
+├── .nojekyll    # 跳过 Jekyll 处理
 └── README.md
 ```
