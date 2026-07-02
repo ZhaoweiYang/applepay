@@ -82,11 +82,28 @@ A   @   185.199.111.153
 
 完成后在页面填 `merchant.com.example.CoinDecision` 检测即可。注意：生产环境下已注册商户有时会返回 `paymentCredentialStatusUnknown`（未知），属 Apple 已知行为，并不代表没卡。
 
+## 新用户引导 / 升级页（onboarding.html）
+
+`onboarding.html` 是一个**独立的新产品**：用户下载并首次进入 App 后弹出的两屏引导 / 升级（付费墙）流程，
+以 Apple「App Clip web view」的样式呈现，视觉风格完全参照 Apple 官方设计语言（SF Pro 字体、系统色板、
+深色模式、安全区适配）。同为纯静态、**零外部依赖**的单文件，直接用浏览器打开即可预览。
+
+- **第一屏 · Free Trial（付费墙）**：顶部「Free Trial」胶囊徽标、App 图标，标题「升级到高级版」，
+  三条 iOS 设置风格的彩色图标权益（Remove Pornhub ads / 升级清晰度 / 单手控制视频），
+  底部吸附的「继续 · Continue」主按钮与试用说明。
+- **第二屏 · 升级成功**：🎉 + 「升级成功」，「下载高级版 / 体验完整功能」，向下箭头指向底部的
+  App Store 智能横幅（含关闭按钮、评分、GET 按钮）。
+- **交互与无障碍**：iOS 缓动的横向切换动画、`prefers-reduced-motion` 降级、焦点管理（切屏后聚焦标题、
+  返回时聚焦按钮）、`role`/`aria-live` 播报、`inert` 隔离非活动屏、Esc 返回、GET→打开 状态切换。
+
+在线预览（部署后）：`https://zhaoweiyang.github.io/applepay/onboarding.html`（或自定义域名下的 `/onboarding.html`）。
+
 ## 文件结构
 
 ```
 .
-├── index.html                                        # 全部页面与检测逻辑（无外部依赖）
+├── index.html                                        # Apple Pay 可用卡检测页与逻辑（无外部依赖）
+├── onboarding.html                                   # 新产品：两屏引导 / 升级流程（Apple 风格，无外部依赖）
 ├── .nojekyll                                         # 跳过 Jekyll 处理（同时让 .well-known 可被托管）
 ├── CNAME                                             # 自定义域名 daomessage.com
 ├── .well-known/apple-developer-merchantid-domain-association  # Apple 域名验证文件（占位，待替换）

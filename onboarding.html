@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#f5f5f7" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f7" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
+<title>高级版 · 免费试用</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1d1d1f;
+    --muted: #6e6e73;
+    --line: #d2d2d7;
+    --accent: #0071e3;
+    --accent-tint: #e8f1fd;
+    --radius: 18px;
+    --shadow: 0 2px 20px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card: #1c1c1e;
+      --text: #f5f5f7;
+      --muted: #98989d;
+      --line: #38383a;
+      --accent: #0a84ff; /* Apple 深色模式系统蓝 */
+      --accent-tint: rgba(10,132,255,.16);
+      --shadow: 0 2px 20px rgba(0,0,0,.5);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+      "Helvetica Neue", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ---------- App Clip web view container ---------- */
+  .clip {
+    position: relative;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    overflow: hidden;
+    padding:
+      max(env(safe-area-inset-top), 8px)
+      env(safe-area-inset-right)
+      max(env(safe-area-inset-bottom), 14px)
+      env(safe-area-inset-left);
+  }
+  /* 桌面 / 宽屏：呈现为悬浮的手机卡片，强化 App Clip 呈现效果 */
+  @media (min-width: 480px) {
+    body { display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .clip {
+      width: 400px;
+      min-height: 0;
+      height: min(92dvh, 860px);
+      border-radius: 46px;
+      border: 1px solid var(--line);
+      box-shadow: 0 30px 80px rgba(0,0,0,.18), var(--shadow);
+    }
+  }
+
+  /* 仿状态栏 */
+  .statusbar {
+    flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 22px; padding: 0 10px;
+    font-size: 14px; font-weight: 600; letter-spacing: .01em;
+    color: var(--text);
+  }
+  .statusbar .sb-icons { display: inline-flex; align-items: center; gap: 6px; }
+  .statusbar svg { display: block; }
+
+  .grabber {
+    flex: none;
+    width: 36px; height: 5px;
+    border-radius: 3px;
+    background: var(--line);
+    margin: 8px auto 2px;
+  }
+
+  .stage {
+    position: relative;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 26px 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transition: transform .55s cubic-bezier(.32,.72,0,1), opacity .42s ease;
+    will-change: transform, opacity;
+  }
+  #screen2 { transform: translateX(100%); opacity: 0; }
+  .clip[data-screen="2"] #screen1 { transform: translateX(-24%); opacity: 0; }
+  .clip[data-screen="2"] #screen2 { transform: translateX(0); opacity: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    .screen { transition: none; }
+  }
+
+  /* ---------- Shared bits ---------- */
+  .app-tile {
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, #3b9bff 0%, #0062df 100%);
+    border-radius: 22%;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.35), var(--shadow);
+    flex: none;
+  }
+  .app-tile svg { display: block; }
+
+  /* ---------- Screen 1 · Free Trial ---------- */
+  #screen1 { text-align: center; align-items: center; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 8px auto 20px;
+    padding: 6px 14px 6px 12px;
+    border-radius: 999px;
+    background: var(--accent-tint);
+    color: var(--accent);
+    font-size: 13px; font-weight: 600; letter-spacing: .01em;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  .pill svg { display: block; }
+
+  .hero-tile { width: 74px; height: 74px; margin-bottom: 18px; }
+
+  #s1-title {
+    font-size: 27px; font-weight: 700; letter-spacing: -.02em;
+    margin: 0 0 8px;
+  }
+  .s1-sub {
+    font-size: 15px; color: var(--muted);
+    margin: 0 0 28px; max-width: 24em;
+  }
+
+  .benefits {
+    list-style: none; margin: 0 0 20px; padding: 0;
+    width: 100%; max-width: 340px;
+    text-align: left;
+  }
+  .benefit {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 0;
+  }
+  /* iOS「设置」风格的彩色圆角图标砖 */
+  .benefit .tile {
+    flex: none; width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 0 0 .5px rgba(0,0,0,.05);
+  }
+  .benefit .tile svg { width: 18px; height: 18px; display: block; color: #fff; }
+  .t-red    { background: linear-gradient(180deg, #ff6961, #e0352b); }
+  .t-blue   { background: linear-gradient(180deg, #38b6ff, #0a84ff); }
+  .t-purple { background: linear-gradient(180deg, #b06bff, #7d3cf0); }
+  .benefit .bt { font-size: 16px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+  .benefit .bd { font-size: 13px; color: var(--muted); margin: 2px 0 0; line-height: 1.4; }
+
+  /* 底部吸附的 CTA 坞 + 顶部滚动渐隐 */
+  .dock {
+    position: sticky; bottom: 0;
+    margin-top: auto;
+    align-self: stretch;
+    width: 100%;
+    background: var(--card);
+    padding: 10px 0 12px;
+  }
+  .dock::before {
+    content: ""; position: absolute;
+    left: 0; right: 0; top: -26px; height: 26px;
+    background: linear-gradient(to top, var(--card), transparent);
+    pointer-events: none;
+  }
+  .dock-inner { width: 100%; max-width: 360px; margin: 0 auto; }
+  .cta {
+    -webkit-tap-highlight-color: transparent;
+    width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    border: none; border-radius: 15px;
+    background: var(--accent); color: #fff;
+    padding: 13px 16px;
+    cursor: pointer;
+    transition: opacity .18s ease, transform .06s ease;
+  }
+  .cta .zh { font-size: 17px; font-weight: 600; letter-spacing: .01em; }
+  .cta .en { font-size: 12px; font-weight: 500; opacity: .82; letter-spacing: .03em; }
+  .cta:hover { opacity: .92; }
+  .cta:active { transform: scale(.985); }
+  .fineprint {
+    font-size: 11.5px; color: var(--muted);
+    margin: 11px 0 2px; letter-spacing: .01em;
+  }
+
+  /* ---------- Screen 2 · Upgrade success ---------- */
+  #screen2 { align-items: center; text-align: center; }
+
+  .back {
+    -webkit-tap-highlight-color: transparent;
+    position: absolute; top: 2px; left: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px;
+    border: none; background: transparent;
+    color: var(--accent); cursor: pointer; border-radius: 12px;
+    transition: opacity .18s ease, transform .06s ease;
+    z-index: 2;
+  }
+  .back:hover { opacity: .7; }
+  .back:active { transform: scale(.9); }
+  .back svg { display: block; }
+
+  .s2-hero { padding-top: 34px; }
+  .emoji {
+    position: relative;
+    font-size: 60px; line-height: 1; margin-bottom: 14px;
+    display: inline-block;
+  }
+  /* 🎉 背后的渐变光环（仅在允许动效时展开） */
+  .emoji::before {
+    content: ""; position: absolute;
+    left: 50%; top: 50%;
+    width: 120px; height: 120px;
+    transform: translate(-50%, -50%) scale(.2);
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      color-mix(in srgb, var(--accent) 26%, transparent) 0%,
+      transparent 68%);
+    opacity: 0; z-index: -1; pointer-events: none;
+  }
+  .emoji.pop { animation: pop .55s cubic-bezier(.34,1.56,.64,1) both; }
+  @keyframes pop {
+    0%   { transform: scale(.4); opacity: 0; }
+    70%  { transform: scale(1.12); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .emoji.pop::before { animation: halo .7s ease-out .05s both; }
+  }
+  @keyframes halo {
+    0%   { opacity: 0;  transform: translate(-50%, -50%) scale(.2); }
+    45%  { opacity: 1; }
+    100% { opacity: 0;  transform: translate(-50%, -50%) scale(1); }
+  }
+  #s2-title {
+    font-size: 28px; font-weight: 700; letter-spacing: -.02em;
+    margin: 0 0 10px; outline: none;
+  }
+  .s2-line { font-size: 17px; font-weight: 600; margin: 0; }
+  .s2-line.muted { font-size: 15px; font-weight: 400; color: var(--muted); margin-top: 4px; }
+
+  .s2-bottom { margin-top: auto; width: 100%; max-width: 360px; padding: 24px 0 6px; }
+
+  .arrow {
+    display: block; margin: 0 auto 16px; color: var(--accent);
+    animation: bob 1.5s ease-in-out infinite;
+  }
+  .arrow svg { display: block; margin: 0 auto; }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(9px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .arrow { animation: none; }
+    .emoji.pop { animation: none; }
+  }
+
+  /* App Store 智能横幅 */
+  .banner {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 12px 14px;
+    text-align: left;
+  }
+  .banner.dismissed { display: none; }
+  .b-close {
+    -webkit-tap-highlight-color: transparent;
+    flex: none;
+    width: 22px; height: 22px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; background: transparent;
+    color: var(--muted); cursor: pointer; border-radius: 50%;
+    transition: opacity .18s ease, transform .06s ease;
+  }
+  .b-close:hover { opacity: .6; }
+  .b-close:active { transform: scale(.86); }
+  .b-close svg { display: block; }
+  .banner .b-tile { width: 52px; height: 52px; border-radius: 24%; }
+  .banner .b-meta { flex: 1 1 auto; min-width: 0; }
+  .banner .b-name {
+    font-size: 15px; font-weight: 600; margin: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .banner .b-cat { font-size: 12.5px; color: var(--muted); margin: 1px 0 0; }
+  .banner .b-rate {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted); margin: 3px 0 0;
+  }
+  .banner .b-rate .stars { color: #ff9f0a; letter-spacing: 1px; font-size: 10px; }
+  .get {
+    -webkit-tap-highlight-color: transparent;
+    flex: none;
+    border: none; border-radius: 999px;
+    background: var(--accent); color: #fff;
+    font-size: 14px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 7px 20px; cursor: pointer;
+    transition: opacity .18s ease, transform .06s ease;
+  }
+  .get:hover { opacity: .92; }
+  .get:active { transform: scale(.94); }
+  .get[data-state="got"] { letter-spacing: .02em; }
+
+  /* ---------- a11y ---------- */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  :focus-visible {
+    outline: 2.5px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 8px;
+  }
+  [inert] { pointer-events: none; }
+</style>
+</head>
+<body>
+<main id="clip" class="clip" data-screen="1" aria-label="高级版 免费试用">
+  <p id="live" class="sr-only" role="status" aria-live="polite"></p>
+
+  <!-- 仿状态栏（纯装饰） -->
+  <div class="statusbar" aria-hidden="true">
+    <span class="sb-time">9:41</span>
+    <span class="sb-icons">
+      <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor">
+        <rect x="0" y="8" width="3" height="4" rx="1"/>
+        <rect x="5" y="5.5" width="3" height="6.5" rx="1"/>
+        <rect x="10" y="3" width="3" height="9" rx="1"/>
+        <rect x="15" y="0.5" width="3" height="11.5" rx="1"/>
+      </svg>
+      <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor">
+        <path d="M8 2.2c2.6 0 5 1 6.8 2.7l-1.4 1.5C11.9 5 10 4.2 8 4.2S4.1 5 2.6 6.4L1.2 4.9C3 3.2 5.4 2.2 8 2.2Zm0 3.4c1.6 0 3.1.6 4.2 1.7l-1.5 1.5C10 8.1 9 7.7 8 7.7s-2 .4-2.7 1.1L3.8 7.3C4.9 6.2 6.4 5.6 8 5.6Zm0 3.4c.7 0 1.3.3 1.8.8L8 11.6 6.2 9.8c.5-.5 1.1-.8 1.8-.8Z"/>
+      </svg>
+      <svg width="26" height="12" viewBox="0 0 26 12" fill="none">
+        <rect x="0.5" y="1" width="21" height="10" rx="3" stroke="currentColor" opacity=".4"/>
+        <rect x="2" y="2.5" width="16" height="7" rx="1.5" fill="currentColor"/>
+        <path d="M23.5 4.2v3.6c.9-.3.9-3.3 0-3.6Z" fill="currentColor" opacity=".5"/>
+      </svg>
+    </span>
+  </div>
+
+  <div class="grabber" aria-hidden="true"></div>
+
+  <div class="stage">
+    <!-- ============ Screen 1 · Free Trial (paywall) ============ -->
+    <section id="screen1" class="screen" role="group" aria-labelledby="s1-title">
+      <span class="pill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 3.4C12.4 9 12.9 9.5 20.6 12 12.9 14.5 12.4 15 12 20.6 11.6 15 11.1 14.5 3.4 12 11.1 9.5 11.6 9 12 3.4Z"/>
+        </svg>
+        Free Trial
+      </span>
+
+      <div class="app-tile hero-tile" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9.4 7.6 17 12 9.4 16.4Z" fill="#fff"/>
+        </svg>
+      </div>
+
+      <h1 id="s1-title">升级到高级版</h1>
+      <p class="s1-sub">先免费试用，随时可取消。解锁全部高级功能。</p>
+
+      <ul class="benefits" role="list">
+        <li class="benefit">
+          <span class="tile t-red" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <circle cx="12" cy="12" r="8"/>
+              <line x1="6.3" y1="6.3" x2="17.7" y2="17.7"/>
+            </svg>
+          </span>
+          <div>
+            <p class="bt">Remove Pornhub ads</p>
+            <p class="bd">移除横幅与弹窗广告，纯净观看</p>
+          </div>
+        </li>
+        <li class="benefit">
+          <span class="tile t-blue" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 3C12.4 8.6 13.4 9.6 19 10 13.4 10.4 12.4 11.4 12 17 11.6 11.4 10.6 10.4 5 10 10.6 9.6 11.6 8.6 12 3Z"/>
+              <path d="M18.4 3.2C18.6 5.6 19 6 21.4 6.2 19 6.4 18.6 6.8 18.4 9.2 18.2 6.8 17.8 6.4 15.4 6.2 17.8 6 18.2 5.6 18.4 3.2Z"/>
+            </svg>
+          </span>
+          <div>
+            <p class="bt">升级清晰度</p>
+            <p class="bd">解锁 1080P 与 4K 高清画质</p>
+          </div>
+        </li>
+        <li class="benefit">
+          <span class="tile t-purple" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="7.5" y="3.5" width="9" height="17" rx="2.6"/>
+              <path d="M9.9 10.6 12 8.5 14.1 10.6"/>
+              <path d="M9.9 13.4 12 15.5 14.1 13.4"/>
+            </svg>
+          </span>
+          <div>
+            <p class="bt">单手控制视频</p>
+            <p class="bd">上下滑动，单手调节亮度与音量</p>
+          </div>
+        </li>
+      </ul>
+
+      <div class="dock">
+        <div class="dock-inner">
+          <button id="continueBtn" class="cta" type="button">
+            <span class="zh">继续</span>
+            <span class="en">Continue</span>
+          </button>
+          <p class="fineprint">含 7 天免费试用 · 之后 ¥28/月 · 随时取消</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Screen 2 · Upgrade success ============ -->
+    <section id="screen2" class="screen" role="group" aria-labelledby="s2-title" aria-hidden="true" inert>
+      <button id="backBtn" class="back" type="button" aria-label="返回上一步">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 5 8 12 15 19"/>
+        </svg>
+      </button>
+
+      <div class="s2-hero">
+        <div id="emoji" class="emoji" aria-hidden="true">🎉</div>
+        <h1 id="s2-title" tabindex="-1">升级成功</h1>
+        <p class="s2-line">下载高级版</p>
+        <p class="s2-line muted">体验完整功能</p>
+      </div>
+
+      <div class="s2-bottom">
+        <span class="arrow" aria-hidden="true">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 5 12 19"/>
+            <path d="M6 13 12 19 18 13"/>
+          </svg>
+        </span>
+
+        <div id="banner" class="banner">
+          <button id="closeBtn" class="b-close" type="button" aria-label="关闭下载横幅">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true">
+              <path d="M6 6 18 18M18 6 6 18"/>
+            </svg>
+          </button>
+          <div class="app-tile b-tile" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9.4 7.6 17 12 9.4 16.4Z" fill="#fff"/>
+            </svg>
+          </div>
+          <div class="b-meta">
+            <p class="b-name">App Tiles Goes Here</p>
+            <p class="b-cat">Category</p>
+            <p class="b-rate">
+              <span class="stars" aria-hidden="true">★★★★★</span>
+              <span>App 内购买项目</span>
+            </p>
+          </div>
+          <button id="getBtn" class="get" type="button" aria-label="获取 App Tiles Goes Here">GET</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var clip = $("clip"), s1 = $("screen1"), s2 = $("screen2");
+  var t2 = $("s2-title"), cont = $("continueBtn"), back = $("backBtn");
+  var live = $("live"), emoji = $("emoji");
+  var getBtn = $("getBtn"), banner = $("banner"), closeBtn = $("closeBtn");
+  var reduceMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function reduced() { return reduceMq.matches; }
+
+  function focusEl(el) {
+    if (!el) return;
+    try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+  }
+
+  function setInert(el, on) {
+    if (on) { el.setAttribute("inert", ""); el.setAttribute("aria-hidden", "true"); }
+    else { el.removeAttribute("inert"); el.removeAttribute("aria-hidden"); }
+    // fallback for engines lacking inert support
+    if (!("inert" in HTMLElement.prototype)) {
+      el.style.visibility = on ? "hidden" : "";
+    }
+  }
+
+  function toScreen2() {
+    clip.setAttribute("data-screen", "2");
+    setInert(s1, true);
+    setInert(s2, false);
+    if (!reduced() && emoji) {
+      emoji.classList.remove("pop");
+      void emoji.offsetWidth; // reflow to retrigger animation
+      emoji.classList.add("pop");
+    }
+    live.textContent = "升级成功。下载高级版，体验完整功能。";
+    window.setTimeout(function () { focusEl(t2); }, reduced() ? 0 : 470);
+  }
+
+  function toScreen1() {
+    clip.setAttribute("data-screen", "1");
+    setInert(s2, true);
+    setInert(s1, false);
+    live.textContent = "";
+    window.setTimeout(function () { focusEl(cont); }, reduced() ? 0 : 470);
+  }
+
+  cont.addEventListener("click", toScreen2);
+  back.addEventListener("click", toScreen1);
+
+  // 成功页按 Esc 返回上一步
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && clip.getAttribute("data-screen") === "2") {
+      toScreen1();
+    }
+  });
+
+  getBtn.addEventListener("click", function () {
+    if (getBtn.dataset.state === "got") return;
+    getBtn.dataset.state = "got";
+    getBtn.textContent = "打开";
+    getBtn.setAttribute("aria-label", "打开 App Tiles Goes Here");
+    live.textContent = "已开始下载 App Tiles Goes Here。";
+  });
+
+  closeBtn.addEventListener("click", function () {
+    banner.classList.add("dismissed");
+    live.textContent = "已关闭下载横幅。";
+    focusEl(t2);
+  });
+
+  // Ensure the resting state is correct even if markup order changes.
+  setInert(s2, true);
+})();
+</script>
+</body>
+</html>
