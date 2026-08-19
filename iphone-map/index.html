@@ -103,9 +103,35 @@
     position: relative; background: var(--surface-1); border: 1px solid var(--line-soft);
     border-radius: 18px; padding: 8px; box-shadow: var(--shadow); overflow: hidden;
   }
-  svg#map { display: block; width: 100%; height: auto; touch-action: manipulation; }
+  svg#map { display: block; width: 100%; height: auto; touch-action: pan-y; cursor: grab; }
+  svg#map.grabbing { cursor: grabbing; }
+  svg#map:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 12px; }
+
+  .zoomctl { position: absolute; right: 14px; top: 14px; z-index: 4; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+  .zoomctl button {
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    font: inherit; font-size: 16px; line-height: 1; color: var(--text-primary); cursor: pointer;
+    background: var(--surface-1); border: 1px solid var(--line); border-radius: 9px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.10);
+  }
+  .zoomctl button:hover { background: var(--surface-2); }
+  .zoomctl button:disabled { opacity: .4; cursor: default; }
+  .zoomctl button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .zoomctl .lvl {
+    font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+    background: var(--surface-1); border: 1px solid var(--line); border-radius: 7px; padding: 1px 6px;
+  }
+
+  select.filter {
+    font: inherit; font-size: 13px; color: var(--text-primary); background: var(--surface-1);
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; max-width: 190px;
+  }
+  select.filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .filterinfo { font-size: 12.5px; color: var(--text-secondary); margin: 10px 2px 0; }
+  .filterinfo b { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .filterinfo .reset { background: none; border: 0; padding: 0 0 0 8px; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; }
   .sq { cursor: pointer; transition: opacity .18s ease; }
-  .sq rect { stroke: var(--surface-1); stroke-width: 2; }
+  .sq rect { stroke: var(--surface-1); stroke-width: 2; vector-effect: non-scaling-stroke; }
   .sq.dim { opacity: .16; }
   .sq.hit rect { stroke: var(--text-primary); stroke-width: 2.5; }
   .sq:focus { outline: none; }
@@ -171,6 +197,8 @@
   .note p, .note li { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 8px; }
   .note ul { padding-left: 18px; margin: 0 0 8px; }
   .note code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
+  .note a { color: var(--accent); }
+  .maphint code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; font-size: 12px; }
   footer { margin-top: 40px; color: var(--text-muted); font-size: 12.5px; text-align: center; }
   footer a { color: var(--accent); }
   .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -181,6 +209,9 @@
     .row .name { width: 92px; }
     .row .num { width: 62px; font-size: 12px; }
     .colorkey .bar, .colorkey .ticks { width: 180px; }
+    /* 小屏上地图本来就小，缩放按钮挪到右下角，别压着日本/俄罗斯那一块 */
+    .zoomctl { top: auto; bottom: 12px; right: 12px; flex-direction: row-reverse; align-items: center; }
+    .zoomctl button { width: 28px; height: 28px; font-size: 15px; }
   }
 </style>
 </head>
@@ -199,24 +230,37 @@
   </header>
 
   <div class="controls">
-    <div class="seg" role="group" aria-label="选择方块面积代表的指标">
+    <div class="seg" id="metricseg" role="group" aria-label="选择方块面积代表的指标">
       <button type="button" data-metric="iphone" aria-pressed="true">iPhone 用户</button>
       <button type="button" data-metric="smart" aria-pressed="false">智能手机用户</button>
       <button type="button" data-metric="pop" aria-pressed="false">总人口</button>
     </div>
+    <div class="seg" id="apseg" role="group" aria-label="按是否支持 Apple Pay 筛选">
+      <button type="button" data-ap="" aria-pressed="true">全部</button>
+      <button type="button" data-ap="1" aria-pressed="false">支持 Apple Pay</button>
+      <button type="button" data-ap="0" aria-pressed="false">不支持</button>
+    </div>
+    <select class="filter" id="langsel" aria-label="按当地主要语言筛选"></select>
     <div class="chips" id="regions" role="group" aria-label="按区域筛选"></div>
     <input class="search" id="search" type="search" placeholder="搜索国家 / 地区…" aria-label="搜索国家或地区" />
   </div>
 
   <div class="mapcard">
-    <svg id="map" viewBox="0 0 1600 960" role="img" aria-labelledby="maptitle mapdesc">
+    <svg id="map" viewBox="0 0 1600 960" tabindex="0" role="img" aria-labelledby="maptitle mapdesc">
       <title id="maptitle">按 iPhone 用户量缩放的世界方块地图</title>
-      <desc id="mapdesc">每个方块代表一个国家或地区，面积正比于该国 iPhone 活跃用户估计数，颜色深浅表示 iOS 份额。完整数值见下方数据表。</desc>
-      <g id="squares"></g>
+      <desc id="mapdesc">每个方块代表一个国家或地区，面积正比于该国 iPhone 活跃用户估计数，颜色深浅表示 iOS 份额。可缩放平移；完整数值见下方数据表。</desc>
+      <g id="viewport"><g id="squares"></g></g>
     </svg>
+    <div class="zoomctl">
+      <button type="button" id="zin" aria-label="放大">＋</button>
+      <button type="button" id="zout" aria-label="缩小" disabled>－</button>
+      <button type="button" id="zreset" aria-label="重置缩放" disabled>⤢</button>
+      <span class="lvl" id="zlvl" aria-live="off">1.0×</span>
+    </div>
     <div class="tip" id="tip" role="status" aria-live="polite"></div>
   </div>
-  <p class="maphint">把鼠标移到方块上（手机上点一下）查看该国的详细数据；上方的开关可以把面积换成智能手机用户或总人口，看同一张地图如何变形。</p>
+  <p class="filterinfo" id="filterinfo"></p>
+  <p class="maphint">滚轮或双指可以缩放，按住拖动平移（键盘上 <code>+</code> / <code>-</code> / <code>0</code> 也可以）；把鼠标移到方块上（手机上点一下）看该国明细。上方的开关能把面积换成智能手机用户或总人口，并按 Apple Pay 支持情况、当地语言、区域筛选。</p>
 
   <div class="legends">
     <div class="sizekey-wrap">
@@ -240,7 +284,7 @@
       <div class="scroller">
         <table>
           <thead>
-            <tr><th>国家/地区</th><th>区域</th><th>iPhone 用户</th><th>占全球</th><th>iOS 份额</th><th>智能机用户</th><th>人口</th></tr>
+            <tr><th>国家/地区</th><th>区域</th><th>主要语言</th><th>Apple Pay</th><th>iPhone 用户</th><th>占全球</th><th>iOS 份额</th><th>智能机用户</th><th>人口</th></tr>
           </thead>
           <tbody id="tbody"></tbody>
         </table>
@@ -256,12 +300,21 @@
       <ul>
         <li><strong>人口</strong>：联合国 2024–2025 年前后口径。</li>
         <li><strong>智能手机普及率</strong>：综合 GSMA Intelligence、DataReportal、Newzoo 的国家级数据。</li>
-        <li><strong>iOS 份额</strong>：StatCounter 2025 年前后的移动操作系统份额月度均值，个别小市场按相邻市场推断。</li>
+        <li><strong>iOS 份额</strong>：StatCounter（<a href="https://gs.statcounter.com/os-market-share/mobile/" target="_blank" rel="noopener">gs.statcounter.com</a>）
+          2025 年前后的移动操作系统份额月度均值，个别小市场按相邻市场推断。</li>
+        <li><strong>主要语言</strong>：当地使用人数最多的一种语言；多语言国家只取一种，用于按语言筛选，不代表官方语言的完整列表。</li>
+        <li><strong>Apple Pay 是否支持</strong>：依据 Apple 官方
+          <a href="https://support.apple.com/en-us/102775" target="_blank" rel="noopener">《可以使用 Apple Pay 的国家和地区》</a>
+          名单的 2025 年口径快照。Apple 会不定期新增国家，个别地区也曾被停用，所以这一列会随时间失效——以 Apple 官网为准。</li>
       </ul>
       <p>所以这里的数字是<strong>量级估计</strong>，适合做国家之间的横向比较，不适合当作精确统计引用。本页共收录
         <span id="ccount2"></span> 个国家/地区，合计约 <span id="total2"></span> 部在用 iPhone；Apple 官方口径的全球活跃 iPhone 约 15 亿台，差额来自未收录的小市场与模型保守估计。</p>
+      <p>页面上的筛选是"变暗"而不是"移除"：被筛掉的国家仍留在原位，方便你看清被选中的那些在世界上的分布，
+        统计行会实时算出筛选结果占全部收录量的比例。地图支持滚轮/双指缩放与拖拽平移，放大后小国的名字会自动出现，
+        文字大小始终保持屏幕上恒定。</p>
       <p>方块布局是 <strong>Demers 方块统计地图</strong>：先把地理中心用 Miller 投影映射到画布，再按 <code>边长 ∝ √用户数</code> 生成方块，最后做迭代松弛消除重叠——所以位置大致保留地理关系，但会为了让面积说话而偏移。</p>
-      <p>数据都在 <code>data.js</code> 里，改完刷新页面即可重新计算。</p>
+      <p>数据都在 <code>data.js</code> 里（每个国家一行：人口、普及率、iOS 份额、主要语言、Apple Pay 支持与否），
+        改完刷新页面即可重新计算面积、排名和所有统计。</p>
     </div>
   </section>
 
@@ -402,7 +455,11 @@
   var mapEl = document.getElementById("map");
   var cardEl = mapEl.parentNode;
 
-  var state = { metric: "iphone", regions: {}, query: "", layout: null, prevLayout: null, nodes: {}, pinned: null };
+  var state = {
+    metric: "iphone", regions: {}, query: "", lang: "", ap: "",
+    layout: null, prevLayout: null, nodes: {}, pinned: null,
+    k: 1, tx: 0, ty: 0, moved: 0
+  };
   var layoutCache = {};
 
   function getLayout(metric) {
@@ -457,27 +514,29 @@
       n.rect.setAttribute("y", y.toFixed(1));
       n.rect.setAttribute("width", s.toFixed(1));
       n.rect.setAttribute("height", s.toFixed(1));
-      n.rect.setAttribute("rx", Math.min(5, s / 6).toFixed(1));
+      n.rect.setAttribute("rx", (Math.min(5, s * state.k / 6) / state.k).toFixed(2));
 
-      // 标签只在放得下时出现：按可用宽度反推字号，小于 10px 就不画
-      var avail = s - 8;
-      var nameW = textWidth(it.d.n);                 // 单位：em
-      var fs = Math.min(26, s * 0.16, avail / nameW);
+      // 标签按"屏幕上的实际大小"决定：放大后小国的名字会自己冒出来，
+      // 字号则除以缩放系数，保证文字在屏幕上大小恒定。
+      var z = state.k;
+      var sz = s * z;                                // 屏幕上的边长（viewBox 单位 × 缩放）
+      var avail = sz - 8;
+      var fs = Math.min(26, sz * 0.16, avail / textWidth(it.d.n));
       var valText = fmt(it.v);
-      var fs2 = Math.min(18, s * 0.115, avail / textWidth(valText));
+      var fs2 = Math.min(18, sz * 0.115, avail / textWidth(valText));
       var showName = fs >= 10;
-      var showVal = showName && fs2 >= 9.5 && s >= 58;
+      var showVal = showName && fs2 >= 9.5 && sz >= 58;
       n.lbl.style.display = showName ? "" : "none";
       n.val.style.display = showVal ? "" : "none";
       if (showName) {
-        n.lbl.setAttribute("font-size", fs.toFixed(1));
+        n.lbl.setAttribute("font-size", (fs / z).toFixed(2));
         n.lbl.setAttribute("x", it.x.toFixed(1));
-        n.lbl.setAttribute("y", (it.y + (showVal ? -1 : fs * 0.36)).toFixed(1));
+        n.lbl.setAttribute("y", (it.y + (showVal ? -1 / z : fs * 0.36 / z)).toFixed(1));
       }
       if (showVal) {
-        n.val.setAttribute("font-size", fs2.toFixed(1));
+        n.val.setAttribute("font-size", (fs2 / z).toFixed(2));
         n.val.setAttribute("x", it.x.toFixed(1));
-        n.val.setAttribute("y", (it.y + fs2 * 1.45).toFixed(1));
+        n.val.setAttribute("y", (it.y + fs2 * 1.45 / z).toFixed(1));
         n.val.textContent = valText;
       }
     });
@@ -531,6 +590,119 @@
     animTimer = setTimeout(finish, DUR + 150);
   }
 
+  /* ---------- 缩放与平移 ---------- */
+  var vpEl = document.getElementById("viewport");
+  var K_MIN = 1, K_MAX = 14, zoomRaf = null;
+
+  function unitsPerPx() { var r = mapEl.getBoundingClientRect(); return r.width ? VW / r.width : 1; }
+
+  function setTransform(k, tx, ty) {
+    k = Math.max(K_MIN, Math.min(K_MAX, k));
+    // 夹紧位移，保证画布始终被内容铺满，不会拖出空白
+    tx = Math.max(VW * (1 - k), Math.min(0, tx));
+    ty = Math.max(VH * (1 - k), Math.min(0, ty));
+    state.k = k; state.tx = tx; state.ty = ty;
+    vpEl.setAttribute("transform", "translate(" + tx.toFixed(2) + " " + ty.toFixed(2) + ") scale(" + k.toFixed(4) + ")");
+    document.getElementById("zlvl").textContent = k.toFixed(1) + "×";
+    document.getElementById("zout").disabled = k <= K_MIN + 1e-6;
+    document.getElementById("zreset").disabled = k <= K_MIN + 1e-6;
+    document.getElementById("zin").disabled = k >= K_MAX - 1e-6;
+    if (zoomRaf) cancelAnimationFrame(zoomRaf);
+    zoomRaf = requestAnimationFrame(function () {
+      zoomRaf = null;
+      if (state.layout) { paint(state.layout); renderSizeKey(); }
+    });
+  }
+
+  function zoomAt(nextK, clientX, clientY) {
+    var r = mapEl.getBoundingClientRect();
+    var px = (clientX - r.left) * (VW / r.width);
+    var py = (clientY - r.top) * (VH / r.height);
+    var k2 = Math.max(K_MIN, Math.min(K_MAX, nextK));
+    var wx = (px - state.tx) / state.k, wy = (py - state.ty) / state.k;
+    setTransform(k2, px - wx * k2, py - wy * k2);
+  }
+  function zoomCenter(f) {
+    var r = mapEl.getBoundingClientRect();
+    zoomAt(state.k * f, r.left + r.width / 2, r.top + r.height / 2);
+  }
+
+  mapEl.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    var unit = e.deltaMode === 1 ? 0.05 : (e.deltaMode === 2 ? 0.6 : 0.0018);
+    zoomAt(state.k * Math.exp(-e.deltaY * unit), e.clientX, e.clientY);
+  }, { passive: false });
+
+  var pointers = new Map(), dragStart = null, pinchStart = null;
+  function ptList() { var a = []; pointers.forEach(function (v) { a.push(v); }); return a; }
+  function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+  mapEl.addEventListener("pointerdown", function (e) {
+    if (e.button !== undefined && e.button !== 0) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    state.moved = 0;
+    if (pointers.size === 1) {
+      dragStart = { x: e.clientX, y: e.clientY, tx: state.tx, ty: state.ty };
+      mapEl.classList.add("grabbing");
+      if (mapEl.setPointerCapture) { try { mapEl.setPointerCapture(e.pointerId); } catch (err) {} }
+    } else if (pointers.size === 2) {
+      var p = ptList();
+      pinchStart = { d: dist(p[0], p[1]), k: state.k, tx: state.tx, ty: state.ty,
+                     mx: (p[0].x + p[1].x) / 2, my: (p[0].y + p[1].y) / 2 };
+      dragStart = null;
+    }
+  });
+
+  mapEl.addEventListener("pointermove", function (e) {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchStart && pointers.size >= 2) {
+      var p = ptList(), d = dist(p[0], p[1]);
+      if (pinchStart.d > 0) {
+        state.moved = 99;
+        var mx = (p[0].x + p[1].x) / 2, my = (p[0].y + p[1].y) / 2;
+        // 先按双指中点的位移平移，再围绕中点缩放
+        var u = unitsPerPx();
+        state.tx = pinchStart.tx + (mx - pinchStart.mx) * u;
+        state.ty = pinchStart.ty + (my - pinchStart.my) * u;
+        state.k = pinchStart.k;
+        zoomAt(pinchStart.k * (d / pinchStart.d), mx, my);
+      }
+    } else if (dragStart) {
+      var dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+      state.moved = Math.max(state.moved, Math.hypot(dx, dy));
+      var u2 = unitsPerPx();
+      setTransform(state.k, dragStart.tx + dx * u2, dragStart.ty + dy * u2);
+    }
+  });
+
+  function endPointer(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchStart = null;
+    if (pointers.size === 0) { dragStart = null; mapEl.classList.remove("grabbing"); }
+  }
+  mapEl.addEventListener("pointerup", endPointer);
+  mapEl.addEventListener("pointercancel", endPointer);
+  mapEl.addEventListener("lostpointercapture", endPointer);
+
+  document.getElementById("zin").addEventListener("click", function (e) { e.stopPropagation(); zoomCenter(1.6); });
+  document.getElementById("zout").addEventListener("click", function (e) { e.stopPropagation(); zoomCenter(1 / 1.6); });
+  document.getElementById("zreset").addEventListener("click", function (e) { e.stopPropagation(); setTransform(1, 0, 0); });
+
+  mapEl.addEventListener("keydown", function (e) {
+    var step = 90 * state.k;
+    if (e.key === "+" || e.key === "=") { zoomCenter(1.6); }
+    else if (e.key === "-" || e.key === "_") { zoomCenter(1 / 1.6); }
+    else if (e.key === "0") { setTransform(1, 0, 0); }
+    else if (e.target === mapEl && e.key.indexOf("Arrow") === 0) {
+      if (e.key === "ArrowLeft") setTransform(state.k, state.tx + step, state.ty);
+      else if (e.key === "ArrowRight") setTransform(state.k, state.tx - step, state.ty);
+      else if (e.key === "ArrowUp") setTransform(state.k, state.tx, state.ty + step);
+      else setTransform(state.k, state.tx, state.ty - step);
+    } else return;
+    e.preventDefault();
+  });
+
   /* ---------- Tooltip ---------- */
   function showTip(iso, evt) {
     var L = getLayout(state.metric);
@@ -549,6 +721,8 @@
       '<dt>iOS 份额</dt><dd>' + pct(d.ios, 1) + '</dd>' +
       '<dt>智能机用户</dt><dd>' + fmt(d.pop * d.pen) + '</dd>' +
       '<dt>人口</dt><dd>' + fmt(d.pop) + '</dd>' +
+      '<dt>主要语言</dt><dd>' + d.lang + '</dd>' +
+      '<dt>Apple Pay</dt><dd>' + (d.ap ? "支持" : "不支持") + '</dd>' +
       '<dt>区域</dt><dd>' + d.r + '</dd>' +
       '</dl>';
     tipEl.classList.add("on");
@@ -579,14 +753,66 @@
   document.addEventListener("click", function () { state.pinned = null; hideTip(); });
 
   /* ---------- 筛选 ---------- */
-  function applyFilter() {
+  function matches(d) {
     var q = state.query.trim().toLowerCase();
-    var anyRegion = Object.keys(state.regions).some(function (r) { return state.regions[r]; });
-    C.forEach(function (d) {
-      var okR = !anyRegion || state.regions[d.r];
-      var okQ = !q || d.n.toLowerCase().indexOf(q) >= 0 || d.e.toLowerCase().indexOf(q) >= 0 || d.i.toLowerCase() === q;
-      state.nodes[d.i].g.classList.toggle("dim", !(okR && okQ));
+    var anyRegion = false;
+    for (var r in state.regions) if (state.regions[r]) { anyRegion = true; break; }
+    if (anyRegion && !state.regions[d.r]) return false;
+    if (state.lang && d.lang !== state.lang) return false;
+    if (state.ap !== "" && String(d.ap) !== state.ap) return false;
+    if (q && d.n.toLowerCase().indexOf(q) < 0 && d.e.toLowerCase().indexOf(q) < 0 && d.i.toLowerCase() !== q) return false;
+    return true;
+  }
+
+  function applyFilter() {
+    var L = getLayout("iphone"), hit = 0, sum = 0, total = L.total;
+    L.items.forEach(function (it) {
+      var ok = matches(it.d);
+      state.nodes[it.d.i].g.classList.toggle("dim", !ok);
+      if (ok) { hit++; sum += it.v; }
     });
+    var active = state.query.trim() || state.lang || state.ap !== "" ||
+      Object.keys(state.regions).some(function (r) { return state.regions[r]; });
+    var box = document.getElementById("filterinfo");
+    if (!active) {
+      box.innerHTML = "共 <b>" + C.length + "</b> 个国家/地区，合计 <b>" + fmt(total) + "</b> iPhone 用户。";
+    } else if (hit === 0) {
+      box.innerHTML = "当前筛选没有匹配的国家/地区。<button type=\"button\" class=\"reset\" id=\"resetf\">清除筛选</button>";
+    } else {
+      box.innerHTML = "筛选出 <b>" + hit + "</b> / " + C.length + " 个国家/地区，合计 <b>" + fmt(sum) +
+        "</b> iPhone 用户，占全部收录量的 <b>" + pct(sum / total, 1) +
+        "</b>。<button type=\"button\" class=\"reset\" id=\"resetf\">清除筛选</button>";
+    }
+    var rb = document.getElementById("resetf");
+    if (rb) rb.addEventListener("click", clearFilters);
+  }
+
+  function clearFilters() {
+    state.query = ""; state.lang = ""; state.ap = ""; state.regions = {};
+    document.getElementById("search").value = "";
+    document.getElementById("langsel").value = "";
+    Array.prototype.forEach.call(document.querySelectorAll("#regions .chip"), function (b) {
+      b.setAttribute("aria-pressed", "false");
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#apseg button"), function (b) {
+      b.setAttribute("aria-pressed", b.dataset.ap === "" ? "true" : "false");
+    });
+    applyFilter();
+  }
+
+  function renderLangs() {
+    var agg = {};
+    getLayout("iphone").items.forEach(function (it) {
+      agg[it.d.lang] = (agg[it.d.lang] || 0) + it.v;
+    });
+    var names = Object.keys(agg).sort(function (a, b) { return agg[b] - agg[a]; });
+    var sel = document.getElementById("langsel");
+    sel.innerHTML = '<option value="">全部语言（' + names.length + " 种）</option>" +
+      names.map(function (n) {
+        var cnt = C.filter(function (d) { return d.lang === n; }).length;
+        return '<option value="' + n + '">' + n + "（" + cnt + " 个 · " + fmt(agg[n]) + "）</option>";
+      }).join("");
+    sel.addEventListener("change", function () { state.lang = this.value; applyFilter(); });
   }
 
   /* ---------- 侧栏：统计块 / 图例 / 排行 / 表格 ---------- */
@@ -596,12 +822,15 @@
     var t = document.getElementById("tiles");
     var top = L.items[0];
     var best = C.slice().sort(function (a, b) { return b.ios - a.ios; })[0];
+    var apUsers = L.items.reduce(function (a, it) { return a + (it.d.ap ? it.v : 0); }, 0);
+    var apCount = C.filter(function (d) { return d.ap; }).length;
     t.innerHTML = [
       ["收录国家/地区", C.length + " <small>个</small>"],
       ["iPhone 用户合计", fmt(L.total).replace(" ", " <small>") + "</small>"],
       ["最大市场", flag(top.d.i) + " " + top.d.n + " <small>" + fmt(top.v) + "</small>"],
       ["Top 10 集中度", pct(top10 / L.total, 1) + " <small>的全球用户</small>"],
-      ["iOS 份额最高", flag(best.i) + " " + best.n + " <small>" + pct(best.ios, 0) + "</small>"]
+      ["iOS 份额最高", flag(best.i) + " " + best.n + " <small>" + pct(best.ios, 0) + "</small>"],
+      ["Apple Pay 市场（" + apCount + " 个）", pct(apUsers / L.total, 1) + " <small>的用户</small>"]
     ].map(function (r) {
       return '<div class="tile"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + "</div></div>";
     }).join("");
@@ -626,12 +855,29 @@
     });
   }
 
+  // 从一组"整数"里挑参考值，让最大的图例方块在屏幕上约 96px
+  var NICE = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+  function pickRefs(pxPerSqrt) {
+    var vmax = Math.pow(96 / pxPerSqrt, 2);
+    var top = NICE[0];
+    for (var i = 0; i < NICE.length; i++) if (NICE[i] <= vmax) top = NICE[i];
+    var out = [top];
+    for (var j = 0; j < 2; j++) {
+      var want = out[out.length - 1] / 5, best = null;
+      for (var m = 0; m < NICE.length; m++) {
+        if (NICE[m] < out[out.length - 1] && (best === null || Math.abs(NICE[m] - want) < Math.abs(best - want))) best = NICE[m];
+      }
+      if (best !== null) out.push(best);
+    }
+    return out;
+  }
+
   function renderSizeKey() {
     var L = getLayout(state.metric);
-    var refs = state.metric === "iphone" ? [50, 10, 2] : [200, 50, 10];
     var box = document.getElementById("sizekey");
-    // 图例方块与地图共用同一套 √ 比例，再乘以 SVG 的显示缩放比 —— 所见即所量
-    var disp = mapEl.getBoundingClientRect().width / VW || 0.7;
+    // 图例方块与地图共用同一套 √ 比例：SVG 显示缩放 × 当前地图缩放 —— 所见即所量
+    var disp = (mapEl.getBoundingClientRect().width / VW || 0.7) * state.k;
+    var refs = pickRefs(L.k * disp);
     var px = refs.map(function (v) { return Math.max(9, L.k * Math.sqrt(v) * disp); });
     box.style.width = px[0].toFixed(0) + "px";
     box.style.height = px[0].toFixed(0) + "px";
@@ -663,7 +909,8 @@
     var L = getLayout("iphone");
     document.getElementById("tbody").innerHTML = L.items.map(function (it) {
       var d = it.d;
-      return "<tr><td>" + flag(d.i) + " " + d.n + "</td><td>" + d.r + "</td><td>" + fmt(it.v) +
+      return "<tr><td>" + flag(d.i) + " " + d.n + "</td><td>" + d.r + "</td><td>" + d.lang +
+        "</td><td>" + (d.ap ? "支持" : "—") + "</td><td>" + fmt(it.v) +
         "</td><td>" + pct(it.share) + "</td><td>" + pct(d.ios, 1) + "</td><td>" + fmt(d.pop * d.pen) +
         "</td><td>" + fmt(d.pop) + "</td></tr>";
     }).join("");
@@ -674,9 +921,20 @@
   state.layout = getLayout("iphone");
   state.prevLayout = state.layout;
   paint(state.layout, 1);
-  renderTiles(); renderRegions(); renderSizeKey(); renderRank(); renderTable();
+  renderTiles(); renderRegions(); renderLangs(); renderSizeKey(); renderRank(); renderTable();
+  setTransform(1, 0, 0);
+  applyFilter();
 
-  document.querySelector(".seg").addEventListener("click", function (e) {
+  document.getElementById("apseg").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-ap]"); if (!b) return;
+    state.ap = b.dataset.ap;
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function (x) {
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    applyFilter();
+  });
+
+  document.getElementById("metricseg").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-metric]"); if (!b) return;
     var m = b.dataset.metric;
     if (m === state.metric) return;
