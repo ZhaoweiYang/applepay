@@ -91,6 +91,8 @@
     background: var(--surface-1); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
   }
   .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip.preset { border-style: dashed; border-color: var(--accent); color: var(--accent); }
+  .chip.preset[aria-pressed="true"] { border-style: solid; color: #fff; }
   .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .search {
     font: inherit; font-size: 13px; color: var(--text-primary); background: var(--surface-1);
@@ -241,6 +243,11 @@
       <button type="button" data-ap="0" aria-pressed="false">不支持</button>
     </div>
     <select class="filter" id="langsel" aria-label="按当地主要语言筛选"></select>
+    <div class="chips" id="riskchips" role="group" aria-label="风控筛选">
+      <button type="button" class="chip" data-risk="vc" aria-pressed="false">排除虚拟卡高发</button>
+      <button type="button" class="chip" data-risk="dr" aria-pressed="false">排除高争议率</button>
+      <button type="button" class="chip preset" id="safepreset" aria-pressed="false">风控友好市场</button>
+    </div>
     <div class="chips" id="regions" role="group" aria-label="按区域筛选"></div>
     <input class="search" id="search" type="search" placeholder="搜索国家 / 地区…" aria-label="搜索国家或地区" />
   </div>
@@ -260,7 +267,7 @@
     <div class="tip" id="tip" role="status" aria-live="polite"></div>
   </div>
   <p class="filterinfo" id="filterinfo"></p>
-  <p class="maphint">滚轮或双指可以缩放，按住拖动平移（键盘上 <code>+</code> / <code>-</code> / <code>0</code> 也可以）；把鼠标移到方块上（手机上点一下）看该国明细。上方的开关能把面积换成智能手机用户或总人口，并按 Apple Pay 支持情况、当地语言、区域筛选。</p>
+  <p class="maphint">滚轮或双指可以缩放，按住拖动平移（键盘上 <code>+</code> / <code>-</code> / <code>0</code> 也可以）；把鼠标移到方块上（手机上点一下）看该国明细。上方的开关能把面积换成智能手机用户或总人口，并按 Apple Pay 支持情况、风控档位、当地语言、区域筛选。</p>
 
   <div class="legends">
     <div class="sizekey-wrap">
@@ -284,7 +291,7 @@
       <div class="scroller">
         <table>
           <thead>
-            <tr><th>国家/地区</th><th>区域</th><th>主要语言</th><th>Apple Pay</th><th>iPhone 用户</th><th>占全球</th><th>iOS 份额</th><th>智能机用户</th><th>人口</th></tr>
+            <tr><th>国家/地区</th><th>区域</th><th>主要语言</th><th>Apple Pay</th><th>虚拟卡</th><th>争议率</th><th>iPhone 用户</th><th>占全球</th><th>iOS 份额</th><th>智能机用户</th><th>人口</th></tr>
           </thead>
           <tbody id="tbody"></tbody>
         </table>
@@ -306,7 +313,24 @@
         <li><strong>Apple Pay 是否支持</strong>：依据 Apple 官方
           <a href="https://support.apple.com/en-us/102775" target="_blank" rel="noopener">《可以使用 Apple Pay 的国家和地区》</a>
           名单的 2025 年口径快照。Apple 会不定期新增国家，个别地区也曾被停用，所以这一列会随时间失效——以 Apple 官网为准。</li>
+        <li><strong>虚拟卡发达程度 / 争议（拒付）率</strong>：<strong>启发式分级，不是实测统计</strong>，见下方说明。</li>
       </ul>
+
+      <h3>风控这两列是怎么定的</h3>
+      <p>"虚拟卡发达"和"争议率高"这两件事没有权威的公开逐国统计（卡组织的拒付率数据不公开发布），
+        所以页面上的分级是按下面这套规则人工划的三档（低 / 中 / 高），用来快速圈出"风控上更省心的市场"，
+        <strong>不能当作风控决策的唯一依据</strong>，更不该当成对某个国家用户的判断：</p>
+      <ul>
+        <li><strong>虚拟卡</strong>：看当地是否有规模化发行虚拟卡 / 一次性卡的银行或金融科技
+          （Revolut、Monzo、Nubank、Privacy.com 以及各类"美元虚拟卡"服务），以及虚拟卡是否被普遍用来
+          绕过地区限制、薅试用与订阅。判为高的有 23 个市场，合计约占收录 iPhone 用户的 21%。</li>
+        <li><strong>争议率</strong>：按支付行业对跨境卡交易的常见风险分层——发卡行争议、friendly fraud、
+          卡测试与盗刷高发的市场判为高，成熟且争议长期偏低的市场判为低。判为高的有 40 个市场，约占 26%。
+          美国因 friendly fraud 偏高被放在"中"。</li>
+      </ul>
+      <p>工具栏里的 <strong>「风控友好市场」</strong> 是一个快捷组合：支持 Apple Pay ＋ 虚拟卡不高发 ＋ 争议率不高，
+        结果是 46 个市场、约占收录 iPhone 用户的 72%。两个"排除"开关也可以单独用，或者和语言、区域、搜索任意组合。
+        觉得某个国家的档位不对，直接改 <code>data.js</code> 里的 <code>vc</code> / <code>dr</code> 就行。</p>
       <p>所以这里的数字是<strong>量级估计</strong>，适合做国家之间的横向比较，不适合当作精确统计引用。本页共收录
         <span id="ccount2"></span> 个国家/地区，合计约 <span id="total2"></span> 部在用 iPhone；Apple 官方口径的全球活跃 iPhone 约 15 亿台，差额来自未收录的小市场与模型保守估计。</p>
       <p>页面上的筛选是"变暗"而不是"移除"：被筛掉的国家仍留在原位，方便你看清被选中的那些在世界上的分布，
@@ -352,6 +376,7 @@
     return w;
   }
   function pct(x, digits) { return (x * 100).toFixed(digits === undefined ? 1 : digits) + "%"; }
+  var LEVEL = ["低", "中", "高"];
   function flag(iso) {
     return String.fromCodePoint.apply(null, iso.toUpperCase().split("").map(function (ch) {
       return 0x1F1E6 + ch.charCodeAt(0) - 65;
@@ -456,7 +481,7 @@
   var cardEl = mapEl.parentNode;
 
   var state = {
-    metric: "iphone", regions: {}, query: "", lang: "", ap: "",
+    metric: "iphone", regions: {}, query: "", lang: "", ap: "", exVc: false, exDr: false,
     layout: null, prevLayout: null, nodes: {}, pinned: null,
     k: 1, tx: 0, ty: 0, moved: 0
   };
@@ -723,6 +748,8 @@
       '<dt>人口</dt><dd>' + fmt(d.pop) + '</dd>' +
       '<dt>主要语言</dt><dd>' + d.lang + '</dd>' +
       '<dt>Apple Pay</dt><dd>' + (d.ap ? "支持" : "不支持") + '</dd>' +
+      '<dt>虚拟卡</dt><dd>' + LEVEL[d.vc] + '</dd>' +
+      '<dt>争议率</dt><dd>' + LEVEL[d.dr] + '</dd>' +
       '<dt>区域</dt><dd>' + d.r + '</dd>' +
       '</dl>';
     tipEl.classList.add("on");
@@ -760,6 +787,8 @@
     if (anyRegion && !state.regions[d.r]) return false;
     if (state.lang && d.lang !== state.lang) return false;
     if (state.ap !== "" && String(d.ap) !== state.ap) return false;
+    if (state.exVc && d.vc === 2) return false;
+    if (state.exDr && d.dr === 2) return false;
     if (q && d.n.toLowerCase().indexOf(q) < 0 && d.e.toLowerCase().indexOf(q) < 0 && d.i.toLowerCase() !== q) return false;
     return true;
   }
@@ -771,7 +800,7 @@
       state.nodes[it.d.i].g.classList.toggle("dim", !ok);
       if (ok) { hit++; sum += it.v; }
     });
-    var active = state.query.trim() || state.lang || state.ap !== "" ||
+    var active = state.query.trim() || state.lang || state.ap !== "" || state.exVc || state.exDr ||
       Object.keys(state.regions).some(function (r) { return state.regions[r]; });
     var box = document.getElementById("filterinfo");
     if (!active) {
@@ -789,6 +818,10 @@
 
   function clearFilters() {
     state.query = ""; state.lang = ""; state.ap = ""; state.regions = {};
+    state.exVc = false; state.exDr = false;
+    Array.prototype.forEach.call(document.querySelectorAll("#riskchips .chip"), function (b) {
+      b.setAttribute("aria-pressed", "false");
+    });
     document.getElementById("search").value = "";
     document.getElementById("langsel").value = "";
     Array.prototype.forEach.call(document.querySelectorAll("#regions .chip"), function (b) {
@@ -797,6 +830,7 @@
     Array.prototype.forEach.call(document.querySelectorAll("#apseg button"), function (b) {
       b.setAttribute("aria-pressed", b.dataset.ap === "" ? "true" : "false");
     });
+    syncPreset();
     applyFilter();
   }
 
@@ -910,7 +944,8 @@
     document.getElementById("tbody").innerHTML = L.items.map(function (it) {
       var d = it.d;
       return "<tr><td>" + flag(d.i) + " " + d.n + "</td><td>" + d.r + "</td><td>" + d.lang +
-        "</td><td>" + (d.ap ? "支持" : "—") + "</td><td>" + fmt(it.v) +
+        "</td><td>" + (d.ap ? "支持" : "—") + "</td><td>" + LEVEL[d.vc] + "</td><td>" + LEVEL[d.dr] +
+        "</td><td>" + fmt(it.v) +
         "</td><td>" + pct(it.share) + "</td><td>" + pct(d.ios, 1) + "</td><td>" + fmt(d.pop * d.pen) +
         "</td><td>" + fmt(d.pop) + "</td></tr>";
     }).join("");
@@ -925,12 +960,40 @@
   setTransform(1, 0, 0);
   applyFilter();
 
+  document.getElementById("riskchips").addEventListener("click", function (e) {
+    var b = e.target.closest(".chip"); if (!b) return;
+    if (b.id === "safepreset") {
+      var on = b.getAttribute("aria-pressed") !== "true";
+      // "风控友好市场" = 支持 Apple Pay + 排除虚拟卡高发 + 排除高争议率
+      state.exVc = on; state.exDr = on; state.ap = on ? "1" : "";
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      Array.prototype.forEach.call(document.querySelectorAll("#riskchips .chip[data-risk]"), function (x) {
+        x.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      Array.prototype.forEach.call(document.querySelectorAll("#apseg button"), function (x) {
+        x.setAttribute("aria-pressed", x.dataset.ap === (on ? "1" : "") ? "true" : "false");
+      });
+    } else {
+      var key = b.dataset.risk === "vc" ? "exVc" : "exDr";
+      state[key] = !state[key];
+      b.setAttribute("aria-pressed", state[key] ? "true" : "false");
+      syncPreset();
+    }
+    applyFilter();
+  });
+
+  function syncPreset() {
+    var on = state.exVc && state.exDr && state.ap === "1";
+    document.getElementById("safepreset").setAttribute("aria-pressed", on ? "true" : "false");
+  }
+
   document.getElementById("apseg").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-ap]"); if (!b) return;
     state.ap = b.dataset.ap;
     Array.prototype.forEach.call(this.querySelectorAll("button"), function (x) {
       x.setAttribute("aria-pressed", x === b ? "true" : "false");
     });
+    syncPreset();
     applyFilter();
   });
 
