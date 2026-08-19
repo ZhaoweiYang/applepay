@@ -19,10 +19,10 @@
     --text-muted:     #7a7873;
     --accent:    #2a78d6;
     /* 顺序色阶（蓝，浅→深 = iOS 份额低→高）；最浅一级仍与底色保持 2:1 以上对比 */
-    --seq-1: #86b6ef; --seq-2: #6da7ec; --seq-3: #5598e7; --seq-4: #3987e5; --seq-5: #2a78d6;
+    --seq-1: #86b6ef; --seq-2: #6da7ec; --seq-3: #5598e7; --seq-4: #3987e5; --seq-5: #2872cc;
     --seq-6: #256abf; --seq-7: #1c5cab; --seq-8: #184f95; --seq-9: #104281; --seq-10:#0d366b;
     /* 方块上的文字：浅底用深墨，深底用白墨（跟随色阶方向） */
-    --ink-1: #0b0b0b; --ink-2: #0b0b0b; --ink-3: #0b0b0b; --ink-4: #0b0b0b; --ink-5: #0b0b0b;
+    --ink-1: #0b0b0b; --ink-2: #0b0b0b; --ink-3: #0b0b0b; --ink-4: #0b0b0b; --ink-5: #ffffff;
     --ink-6: #ffffff; --ink-7: #ffffff; --ink-8: #ffffff; --ink-9: #ffffff; --ink-10:#ffffff;
     --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 30px rgba(0,0,0,.06);
   }
@@ -38,7 +38,7 @@
       --text-muted:     #93928a;
       --accent:    #3987e5;
       /* 深色底：色阶反向，份额越高越亮；最深一级仍与底色保持 2:1 以上对比 */
-      --seq-1: #184f95; --seq-2: #1c5cab; --seq-3: #256abf; --seq-4: #2a78d6; --seq-5: #3987e5;
+      --seq-1: #184f95; --seq-2: #1c5cab; --seq-3: #256abf; --seq-4: #2872cc; --seq-5: #3987e5;
       --seq-6: #5598e7; --seq-7: #6da7ec; --seq-8: #86b6ef; --seq-9: #9ec5f4; --seq-10:#cde2fb;
       --ink-1: #ffffff; --ink-2: #ffffff; --ink-3: #ffffff; --ink-4: #ffffff; --ink-5: #0b0b0b;
       --ink-6: #0b0b0b; --ink-7: #0b0b0b; --ink-8: #0b0b0b; --ink-9: #0b0b0b; --ink-10:#0b0b0b;
@@ -117,7 +117,14 @@
     box-shadow: 0 1px 3px rgba(0,0,0,.10);
   }
   .zoomctl button:hover { background: var(--surface-2); }
-  .zoomctl button:disabled { opacity: .4; cursor: default; }
+  .zoomctl button[aria-disabled="true"] { opacity: .4; cursor: default; }
+  .wheelhint {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.96);
+    z-index: 6; pointer-events: none; opacity: 0; transition: opacity .18s ease, transform .18s ease;
+    background: var(--surface-1); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 10px 16px; font-size: 13px; color: var(--text-primary);
+  }
+  .wheelhint.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .zoomctl button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .zoomctl .lvl {
     font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
@@ -126,7 +133,7 @@
 
   select.filter {
     font: inherit; font-size: 13px; color: var(--text-primary); background: var(--surface-1);
-    border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; max-width: 190px;
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; max-width: 250px;
   }
   select.filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
   .excludebar {
@@ -231,6 +238,13 @@
     /* 小屏上地图本来就小，缩放按钮挪到右下角，别压着日本/俄罗斯那一块 */
     .zoomctl { top: auto; bottom: 12px; right: 12px; flex-direction: row-reverse; align-items: center; }
     .zoomctl button { width: 28px; height: 28px; font-size: 15px; }
+    /* 小屏：明细卡片放到地图下方，避免被 .mapcard 的 overflow:hidden 裁掉上半截 */
+    .mapcard { overflow: visible; }
+    .tip {
+      position: static; opacity: 1; transform: none; display: none;
+      width: 100%; max-width: none; margin-top: 8px; box-shadow: none;
+    }
+    .tip.on { display: block; }
   }
 </style>
 </head>
@@ -257,7 +271,7 @@
       <button type="button" data-metric="pop" aria-pressed="false">总人口</button>
     </div>
     <div class="seg" id="apseg" role="group" aria-label="按是否支持 Apple Pay 筛选">
-      <button type="button" data-ap="">全部</button>
+      <button type="button" data-ap="" aria-pressed="false">全部</button>
       <button type="button" data-ap="1" aria-pressed="true">支持 Apple Pay</button>
       <button type="button" data-ap="0" aria-pressed="false">不支持</button>
     </div>
@@ -279,21 +293,22 @@
   </div>
 
   <div class="mapcard">
+    <div class="zoomctl">
+      <button type="button" id="zin" aria-label="放大">＋</button>
+      <button type="button" id="zout" aria-label="缩小" aria-disabled="true">－</button>
+      <button type="button" id="zreset" aria-label="重置缩放" aria-disabled="true">⤢</button>
+      <span class="lvl" id="zlvl" aria-live="off">1.0×</span>
+    </div>
+    <div class="wheelhint" id="wheelhint" aria-hidden="true">按住 ⌘ / Ctrl 滚动可缩放，也可以用右上角的 ＋ －</div>
     <svg id="map" viewBox="0 0 1600 960" tabindex="0" role="img" aria-labelledby="maptitle mapdesc">
       <title id="maptitle">按 iPhone 用户量缩放的世界方块地图</title>
       <desc id="mapdesc">每个方块代表一个国家或地区，面积正比于该国 iPhone 活跃用户估计数，颜色深浅表示 iOS 份额。默认只显示支持 Apple Pay 的市场，可缩放平移；完整数值（含未显示的市场）见下方数据表。</desc>
       <g id="viewport"><g id="squares"></g></g>
     </svg>
-    <div class="zoomctl">
-      <button type="button" id="zin" aria-label="放大">＋</button>
-      <button type="button" id="zout" aria-label="缩小" disabled>－</button>
-      <button type="button" id="zreset" aria-label="重置缩放" disabled>⤢</button>
-      <span class="lvl" id="zlvl" aria-live="off">1.0×</span>
-    </div>
     <div class="tip" id="tip" role="status" aria-live="polite"></div>
   </div>
   <p class="filterinfo" id="filterinfo"></p>
-  <p class="maphint">筛掉的国家/地区会直接从图上移走，剩下的重新排布铺满画布——所以切换条件时你看到的是"这批市场自己的世界地图"，下面的排行榜也跟着变。<strong>双击任意方块可以把它移出地图</strong>，在地图上方那行点 ✕ 就能放回来。滚轮或双指缩放，按住拖动平移（键盘 <code>+</code> / <code>-</code> / <code>0</code> 也行）；鼠标移到方块上（手机点一下）看明细。上方开关还能把面积换成智能手机用户或总人口，并按风控档位、当地语言、区域筛选。</p>
+  <p class="maphint">筛掉的国家/地区会直接从图上移走，剩下的重新排布铺满画布——所以切换条件时你看到的是"这批市场自己的世界地图"，下面的排行榜也跟着变。<strong>双击任意方块可以把它移出地图</strong>，在地图上方那行点 ✕ 就能放回来。缩放用 <code>⌘</code>/<code>Ctrl</code> ＋滚轮、触控板双指捏合，或右上角的 ＋ －（键盘 <code>+</code> / <code>-</code> / <code>0</code> 也行）；按住拖动平移；鼠标移到方块上（手机点一下）看明细。上方开关还能把面积换成智能手机用户或总人口，并按风控档位、当地语言、区域筛选。</p>
 
   <div class="legends">
     <div class="sizekey-wrap">
@@ -364,8 +379,9 @@
         这两层默认都可以随时取消：Apple Pay 那组切「全部」，排除列表点「全部恢复」。
         被移走的国家/地区数据仍然保留在下面的完整数据表里。任何筛选都是"移除"而不是"变暗"：被筛掉的方块从图上消失，
         剩下的会重新做一次布局并等比放大铺满画布，统计行同时给出当前显示了多少市场、占收录总量的多少。
-        想看全部市场，把工具栏 Apple Pay 那一组切到「全部」即可。地图支持滚轮/双指缩放与拖拽平移，
-        放大后小国的名字会自动出现，文字大小始终保持屏幕上恒定。</p>
+        想看全部市场，把工具栏 Apple Pay 那一组切到「全部」即可。地图支持 ⌘/Ctrl ＋滚轮、双指捏合与拖拽平移——裸滚轮留给页面滚动，
+        免得光标停在地图上就翻不动页。放大后小国的名字会自动出现，文字大小始终保持屏幕上恒定，
+        且只给屏幕内的方块排版，所以高倍率下也不卡。</p>
       <p>方块布局是 <strong>Demers 方块统计地图</strong>：先把地理中心用 Miller 投影映射到画布，再按 <code>边长 ∝ √用户数</code> 生成方块，最后做迭代松弛消除重叠——所以位置大致保留地理关系，但会为了让面积说话而偏移。</p>
       <p>数据都在 <code>data.js</code> 里（每个国家一行：人口、普及率、iOS 份额、主要语言、Apple Pay 支持与否），
         改完刷新页面即可重新计算面积、排名和所有统计。</p>
@@ -385,10 +401,12 @@
   var C = window.IPHONE_DATA.countries;
   var VW = 1600, VH = 960, PAD = 18;
 
+  // 小屏上 SVG 显示得小，方块相对画布铺得满一点，标签才够读
+  var FILL = (window.matchMedia && window.matchMedia("(max-width: 640px)").matches) ? 0.40 : 0.30;
   var METRICS = {
-    iphone: { label: "iPhone 用户", calc: function (d) { return d.pop * d.pen * d.ios; }, fill: 0.30 },
-    smart:  { label: "智能手机用户", calc: function (d) { return d.pop * d.pen; },        fill: 0.30 },
-    pop:    { label: "总人口",       calc: function (d) { return d.pop; },                fill: 0.30 }
+    iphone: { label: "iPhone 用户", calc: function (d) { return d.pop * d.pen * d.ios; }, fill: FILL },
+    smart:  { label: "智能手机用户", calc: function (d) { return d.pop * d.pen; },        fill: FILL },
+    pop:    { label: "总人口",       calc: function (d) { return d.pop; },                fill: FILL }
   };
 
   /* ---------- 工具 ---------- */
@@ -441,8 +459,12 @@
     var xs = items.map(function (i) { return i.px; }), ys = items.map(function (i) { return i.py; });
     var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
     var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
-    var sc = Math.min(iw / (x1 - x0), ih / (y1 - y0));
-    var ox = PAD + (iw - (x1 - x0) * sc) / 2, oy = PAD + (ih - (y1 - y0) * sc) / 2;
+    // 只剩一个国家（或全在同一经/纬度）时跨度为 0，要兜住除零
+    var spx = x1 - x0, spy = y1 - y0;
+    var sc = (spx > 0 || spy > 0)
+      ? Math.min(spx > 0 ? iw / spx : Infinity, spy > 0 ? ih / spy : Infinity)
+      : 1;
+    var ox = PAD + (iw - spx * sc) / 2, oy = PAD + (ih - spy * sc) / 2;
     items.forEach(function (it) {
       it.ax = ox + (it.px - x0) * sc;
       it.ay = oy + (it.py - y0) * sc;
@@ -454,10 +476,12 @@
 
     var ITER = 900, PULL = 0.014, PUSH = 0.55;
     for (var t = 0; t < ITER; t++) {
+      // 锚点拉力随迭代衰减到 0：否则它会和分离斥力达成平衡，方块永远分不开
+      var pull = PULL * Math.max(0, 1 - t / (ITER * 0.8));
       for (var i = 0; i < order.length; i++) {
         var a = order[i];
-        a.x += (a.ax - a.x) * PULL;
-        a.y += (a.ay - a.y) * PULL;
+        a.x += (a.ax - a.x) * pull;
+        a.y += (a.ay - a.y) * pull;
       }
       for (var i2 = 0; i2 < order.length; i2++) {
         for (var j = i2 + 1; j < order.length; j++) {
@@ -515,6 +539,7 @@
 
   var state = {
     metric: "iphone", regions: {}, query: "", lang: "", ap: "1", exVc: false, exDr: false,
+    disp: null, painting: null,
     excluded: {},
     layout: null, prevLayout: null, nodes: {}, pinned: null,
     k: 1, tx: 0, ty: 0, moved: 0
@@ -549,7 +574,6 @@
       // 浅色方块（份额高的深色模式 / 份额低的浅色模式）用深墨，反之用白墨
       lbl.setAttribute("fill", "var(--ink-" + step + ")");
       val.setAttribute("fill", "var(--ink-" + step + ")");
-      val.setAttribute("fill-opacity", "0.72");
       lbl.textContent = d.n;
       g.appendChild(rect); g.appendChild(lbl); g.appendChild(val);
       gRoot.appendChild(g);
@@ -558,7 +582,18 @@
       g.addEventListener("mouseenter", function (e) { showTip(d.i, e); });
       g.addEventListener("mousemove", function (e) { moveTip(e); });
       g.addEventListener("mouseleave", function () { if (!state.pinned) hideTip(); });
-      g.addEventListener("focus", function () { showTip(d.i, null); });
+      g.addEventListener("focus", function () {
+        // 放大后聚焦到画面外的方块时，先把它移进视野，否则看不到焦点框
+        var L = state.layout, it = null;
+        if (L) for (var q = 0; q < L.items.length; q++) if (L.items[q].d.i === d.i) { it = L.items[q]; break; }
+        if (it) {
+          var sx = it.x * state.k + state.tx, sy = it.y * state.k + state.ty;
+          if (sx < 0 || sx > VW || sy < 0 || sy > VH) {
+            setTransform(state.k, VW / 2 - it.x * state.k, VH / 2 - it.y * state.k);
+          }
+        }
+        showTip(d.i, null);
+      });
       g.addEventListener("blur", function () { if (!state.pinned) hideTip(); });
       g.addEventListener("click", function (e) {
         e.stopPropagation();
@@ -576,25 +611,34 @@
   }
 
   function paint(L, progress) {
+    // 视口裁剪：放大后只给屏幕内的方块写文字。178 个 <text> 每帧重排是缩放卡顿的根因，
+    // 而 14× 时真正看得见的只有几个方块。
+    var vx0 = -state.tx / state.k, vy0 = -state.ty / state.k;
+    var vx1 = vx0 + VW / state.k, vy1 = vy0 + VH / state.k;
     L.items.forEach(function (it) {
       var n = state.nodes[it.d.i];
       var s = it.s, x = it.x - s / 2, y = it.y - s / 2;
+      if (!isFinite(s) || !isFinite(x) || !isFinite(y)) return;
       n.rect.setAttribute("x", x.toFixed(1));
       n.rect.setAttribute("y", y.toFixed(1));
       n.rect.setAttribute("width", s.toFixed(1));
       n.rect.setAttribute("height", s.toFixed(1));
-      n.rect.setAttribute("rx", (Math.min(5, s * state.k / 6) / state.k).toFixed(2));
+      var rr = (Math.min(5, s * state.k / 6) / state.k).toFixed(2);
+      n.rect.setAttribute("rx", rr); n.rect.setAttribute("ry", rr);
 
       // 标签按"屏幕上的实际大小"决定：放大后小国的名字会自己冒出来，
       // 字号则除以缩放系数，保证文字在屏幕上大小恒定。
-      var z = state.k;
-      var sz = s * z;                                // 屏幕上的边长（viewBox 单位 × 缩放）
+      // z = 1 个 viewBox 单位对应多少 CSS 像素（SVG 显示缩放 × 地图缩放）
+      var z = state.k * (state.disp || (state.disp = (mapEl.getBoundingClientRect().width / VW) || 0.7));
+      var sz = s * z;                                // 方块在屏幕上的真实边长（CSS px）
       var avail = sz - 8;
       var fs = Math.min(26, sz * 0.16, avail / textWidth(it.d.n));
       var valText = fmt(it.v);
       var fs2 = Math.min(18, sz * 0.115, avail / textWidth(valText));
-      var showName = fs >= 10;
-      var showVal = showName && fs2 >= 9.5 && sz >= 58;
+      var half = s / 2;
+      var onScreen = it.x + half > vx0 && it.x - half < vx1 && it.y + half > vy0 && it.y - half < vy1;
+      var showName = onScreen && fs >= 10;           // 真·CSS px 阈值
+      var showVal = showName && fs2 >= 10 && sz >= 58;
       n.lbl.style.display = showName ? "" : "none";
       n.val.style.display = showVal ? "" : "none";
       if (showName) {
@@ -615,11 +659,12 @@
   var anim = null, animTimer = null;
   function transitionToLayout(to) {
     state.layout = to;
+    state.painting = null;
     if (anim) { cancelAnimationFrame(anim); anim = null; }
     clearTimeout(animTimer);
 
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) { paint(to, 1); return; }
+    if (reduce) { state.painting = null; paint(to, 1); state.prevLayout = to; return; }
 
     // 起点直接读当前画面上的几何，这样连续切换、动画被打断都不会跳
     var from = {};
@@ -638,6 +683,7 @@
       if (done) return;
       done = true;
       if (anim) { cancelAnimationFrame(anim); anim = null; }
+      state.painting = null;
       paint(to, 1);
       state.prevLayout = to;
     }
@@ -646,11 +692,12 @@
       if (start === null) start = ts;
       var p = Math.min(1, (ts - start) / DUR);
       var e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-      paint({ items: to.items.map(function (it) {
+      state.painting = { items: to.items.map(function (it) {
         var f = from[it.d.i];
         return { d: it.d, v: f.v + (it.v - f.v) * e, s: f.s + (it.s - f.s) * e,
                  x: f.x + (it.x - f.x) * e, y: f.y + (it.y - f.y) * e };
-      }) }, e);
+      }) };
+      paint(state.painting, e);
       if (p < 1) anim = requestAnimationFrame(frame);
       else finish();
     }
@@ -672,13 +719,17 @@
     state.k = k; state.tx = tx; state.ty = ty;
     vpEl.setAttribute("transform", "translate(" + tx.toFixed(2) + " " + ty.toFixed(2) + ") scale(" + k.toFixed(4) + ")");
     document.getElementById("zlvl").textContent = k.toFixed(1) + "×";
-    document.getElementById("zout").disabled = k <= K_MIN + 1e-6;
-    document.getElementById("zreset").disabled = k <= K_MIN + 1e-6;
-    document.getElementById("zin").disabled = k >= K_MAX - 1e-6;
+    var atMin = k <= K_MIN + 1e-6, atMax = k >= K_MAX - 1e-6;
+    document.getElementById("zout").setAttribute("aria-disabled", atMin ? "true" : "false");
+    document.getElementById("zreset").setAttribute("aria-disabled", atMin ? "true" : "false");
+    document.getElementById("zin").setAttribute("aria-disabled", atMax ? "true" : "false");
+    // D) 放大后接管全部手势（否则单指竖向拖会被浏览器抢走）；回到 1× 让页面正常滚
+    mapEl.style.touchAction = k > K_MIN + 1e-6 ? "none" : "pan-y";
     if (zoomRaf) cancelAnimationFrame(zoomRaf);
     zoomRaf = requestAnimationFrame(function () {
       zoomRaf = null;
-      if (state.layout) { paint(state.layout); renderSizeKey(); }
+      var L = state.painting || state.layout;
+      if (L) { paint(L); renderSizeKey(); }
     });
   }
 
@@ -695,10 +746,22 @@
     zoomAt(state.k * f, r.left + r.width / 2, r.top + r.height / 2);
   }
 
+  var hintT = null;
+  function showWheelHint() {
+    var h = document.getElementById("wheelhint");
+    h.classList.add("on");
+    clearTimeout(hintT);
+    hintT = setTimeout(function () { h.classList.remove("on"); }, 1400);
+  }
   mapEl.addEventListener("wheel", function (e) {
-    e.preventDefault();
+    // 裸滚轮留给页面（否则光标停在地图上就再也滚不动了）；⌘/Ctrl + 滚轮才缩放，
+    // 触控板的双指捏合浏览器本来就报成 ctrlKey wheel，所以捏合手感不变
+    if (!(e.ctrlKey || e.metaKey)) { showWheelHint(); return; }
     var unit = e.deltaMode === 1 ? 0.05 : (e.deltaMode === 2 ? 0.6 : 0.0018);
-    zoomAt(state.k * Math.exp(-e.deltaY * unit), e.clientX, e.clientY);
+    var next = Math.max(K_MIN, Math.min(K_MAX, state.k * Math.exp(-e.deltaY * unit)));
+    e.preventDefault();
+    if (Math.abs(next - state.k) < 1e-6) return;
+    zoomAt(next, e.clientX, e.clientY);
   }, { passive: false });
 
   var pointers = new Map(), dragStart = null, pinchStart = null;
@@ -710,9 +773,8 @@
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     state.moved = 0;
     if (pointers.size === 1) {
-      dragStart = { x: e.clientX, y: e.clientY, tx: state.tx, ty: state.ty };
+      dragStart = { x: e.clientX, y: e.clientY, tx: state.tx, ty: state.ty, cap: 0 };
       mapEl.classList.add("grabbing");
-      if (mapEl.setPointerCapture) { try { mapEl.setPointerCapture(e.pointerId); } catch (err) {} }
     } else if (pointers.size === 2) {
       var p = ptList();
       pinchStart = { d: dist(p[0], p[1]), k: state.k, tx: state.tx, ty: state.ty,
@@ -739,6 +801,11 @@
     } else if (dragStart) {
       var dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
       state.moved = Math.max(state.moved, Math.hypot(dx, dy));
+      // 真的开始拖了才捕获指针：这样纯点击 / 双击仍然落在方块自己身上
+      if (state.moved > 4 && !dragStart.cap) {
+        dragStart.cap = 1;
+        if (mapEl.setPointerCapture) { try { mapEl.setPointerCapture(e.pointerId); } catch (err) {} }
+      }
       var u2 = unitsPerPx();
       setTransform(state.k, dragStart.tx + dx * u2, dragStart.ty + dy * u2);
     }
@@ -747,18 +814,34 @@
   function endPointer(e) {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinchStart = null;
+    if (pointers.size === 1) {
+      var p1 = ptList()[0];
+      dragStart = { x: p1.x, y: p1.y, tx: state.tx, ty: state.ty, cap: 1 };
+    }
     if (pointers.size === 0) { dragStart = null; mapEl.classList.remove("grabbing"); }
   }
   mapEl.addEventListener("pointerup", endPointer);
   mapEl.addEventListener("pointercancel", endPointer);
   mapEl.addEventListener("lostpointercapture", endPointer);
 
-  document.getElementById("zin").addEventListener("click", function (e) { e.stopPropagation(); zoomCenter(1.6); });
-  document.getElementById("zout").addEventListener("click", function (e) { e.stopPropagation(); zoomCenter(1 / 1.6); });
-  document.getElementById("zreset").addEventListener("click", function (e) { e.stopPropagation(); setTransform(1, 0, 0); });
+  document.getElementById("zin").addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (this.getAttribute("aria-disabled") === "true") return;
+    zoomCenter(1.6);
+  });
+  document.getElementById("zout").addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (this.getAttribute("aria-disabled") === "true") return;
+    zoomCenter(1 / 1.6);
+  });
+  document.getElementById("zreset").addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (this.getAttribute("aria-disabled") === "true") return;
+    setTransform(1, 0, 0);
+  });
 
   mapEl.addEventListener("keydown", function (e) {
-    var step = 90 * state.k;
+    var step = 90;   // 屏幕位移与缩放无关，乘 state.k 会让高倍率下一步跳掉大半屏
     if (e.key === "+" || e.key === "=") { zoomCenter(1.6); }
     else if (e.key === "-" || e.key === "_") { zoomCenter(1 / 1.6); }
     else if (e.key === "0") { setTransform(1, 0, 0); }
@@ -796,6 +879,7 @@
       '<dt>区域</dt><dd>' + d.r + '</dd>' +
       '</dl>';
     tipEl.classList.add("on");
+    tipEl.setAttribute("aria-hidden", "false");
     if (evt) moveTip(evt);
     else {
       var r = state.nodes[iso].rect.getBoundingClientRect();
@@ -810,22 +894,32 @@
   }
   function place(x, y) {
     var w = tipEl.offsetWidth, h = tipEl.offsetHeight, cr = cardEl.getBoundingClientRect();
+    if (window.matchMedia && window.matchMedia("(max-width: 640px)").matches) return; // 小屏用静态位置
     var left = Math.max(8, Math.min(cr.width - w - 8, x + 16));
     var top = y - h - 14;
     if (top < 8) top = Math.min(cr.height - h - 8, y + 20);
+    top = Math.max(8, Math.min(cr.height - h - 8, top));
     tipEl.style.left = left + "px";
     tipEl.style.top = top + "px";
   }
   function hideTip() {
     tipEl.classList.remove("on");
+    tipEl.setAttribute("aria-hidden", "true");
+    tipEl.innerHTML = "";
     for (var k in state.nodes) state.nodes[k].g.classList.remove("hit");
   }
   document.addEventListener("click", function () { state.pinned = null; hideTip(); });
 
   /* ---------- 筛选 ---------- */
+  function fold(str) { // 去掉变音符号与撇号，让 turkiye / cote d ivoire 也能搜到
+    return String(str).normalize ? String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['\u2019]/g, "").toLowerCase()
+                                 : String(str).toLowerCase();
+  }
+  var ALIAS = { TR: "turkey", CI: "ivory coast", CN: "china mainland prc", HK: "hongkong", TW: "chinese taipei", KR: "korea", AE: "uae emirates", GB: "uk britain england", US: "usa america" };
+
   function matches(d) {
     if (state.excluded[d.i]) return false;
-    var q = state.query.trim().toLowerCase();
+    var q = fold(state.query.trim());
     var anyRegion = false;
     for (var r in state.regions) if (state.regions[r]) { anyRegion = true; break; }
     if (anyRegion && !state.regions[d.r]) return false;
@@ -833,7 +927,8 @@
     if (state.ap !== "" && String(d.ap) !== state.ap) return false;
     if (state.exVc && d.vc === 2) return false;
     if (state.exDr && d.dr === 2) return false;
-    if (q && d.n.toLowerCase().indexOf(q) < 0 && d.e.toLowerCase().indexOf(q) < 0 && d.i.toLowerCase() !== q) return false;
+    if (q && d.n.toLowerCase().indexOf(q) < 0 && fold(d.e).indexOf(q) < 0 &&
+        d.i.toLowerCase() !== q && (!ALIAS[d.i] || ALIAS[d.i].indexOf(q) < 0)) return false;
     return true;
   }
 
@@ -850,7 +945,10 @@
       n.g.setAttribute("aria-hidden", show ? "false" : "true");
     });
     updateFilterInfo(vis);
-    if (!vis.length) { renderRank(); return; }
+    if (!vis.length) {
+      state.layout = state.prevLayout = { items: [], total: 0, k: 1, metric: state.metric };
+      renderRank(); renderSizeKey(); return;
+    }
     var L = layoutFor(state.metric, vis);
     if (animate) transitionToLayout(L);
     else { state.layout = L; state.prevLayout = L; paint(L); }
@@ -921,8 +1019,14 @@
   }
 
   function exclude(iso, on) {
+    var box = document.getElementById("excludechips");
+    var hadFocus = box.contains(document.activeElement);
     if (on) state.excluded[iso] = 1; else delete state.excluded[iso];
     renderExcluded();
+    if (hadFocus) {                            // 重建 chips 会丢焦点，还给键盘用户
+      var next = box.querySelector("button[data-unx]") || document.getElementById("excludesel");
+      if (next) next.focus();
+    }
     applyFilter();
   }
 
@@ -936,7 +1040,7 @@
     sel.innerHTML = '<option value="">全部语言（' + names.length + " 种）</option>" +
       names.map(function (n) {
         var cnt = C.filter(function (d) { return d.lang === n; }).length;
-        return '<option value="' + n + '">' + n + "（" + cnt + " 个 · " + fmt(agg[n]) + "）</option>";
+        return '<option value="' + n + '">' + n + "（" + cnt + " 个 · " + fmt(agg[n]) + " iPhone）</option>";
       }).join("");
     sel.addEventListener("change", function () { state.lang = this.value; applyFilter(); });
   }
@@ -982,7 +1086,7 @@
   }
 
   // 从一组"整数"里挑参考值，让最大的图例方块在屏幕上约 96px
-  var NICE = [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+  var NICE = [0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
   function pickRefs(pxPerSqrt) {
     var vmax = Math.pow(96 / pxPerSqrt, 2);
     var top = NICE[0];
@@ -993,7 +1097,7 @@
       for (var m = 0; m < NICE.length; m++) {
         if (NICE[m] < out[out.length - 1] && (best === null || Math.abs(NICE[m] - want) < Math.abs(best - want))) best = NICE[m];
       }
-      if (best !== null) out.push(best);
+      out.push(best !== null ? best : out[out.length - 1] / 5);
     }
     return out;
   }
@@ -1001,6 +1105,11 @@
   function renderSizeKey() {
     var L = state.layout || getLayout(state.metric);
     var box = document.getElementById("sizekey");
+    if (!L.items.length) {
+      box.innerHTML = ""; box.style.width = "0px"; box.style.height = "0px";
+      document.getElementById("sizekey-metric").textContent = METRICS[state.metric].label + "数";
+      return;
+    }
     // 图例方块与地图共用同一套 √ 比例：SVG 显示缩放 × 当前地图缩放 —— 所见即所量
     var disp = (mapEl.getBoundingClientRect().width / VW || 0.7) * state.k;
     var refs = pickRefs(L.k * disp);
@@ -1128,7 +1237,12 @@
 
   var rt;
   window.addEventListener("resize", function () {
-    clearTimeout(rt); rt = setTimeout(renderSizeKey, 150);
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      state.disp = null;                       // 显示缩放变了，标签字号阈值要重算
+      if (state.layout) paint(state.layout);
+      renderSizeKey();
+    }, 150);
   });
 })();
 </script>
