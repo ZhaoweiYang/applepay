@@ -134,7 +134,7 @@
   .filterinfo .reset { background: none; border: 0; padding: 0 0 0 8px; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; }
   .sq { cursor: pointer; transition: opacity .18s ease; }
   .sq rect { stroke: var(--surface-1); stroke-width: 2; vector-effect: non-scaling-stroke; }
-  .sq.dim { opacity: .16; }
+  .sq.gone { opacity: 0; pointer-events: none; visibility: hidden; transition: opacity .25s ease, visibility 0s linear .25s; }
   .sq.hit rect { stroke: var(--text-primary); stroke-width: 2.5; }
   .sq:focus { outline: none; }
   .sq:focus-visible rect { stroke: var(--text-primary); stroke-width: 3; }
@@ -225,7 +225,8 @@
     <h1>用方块面积看世界的 iPhone 用户</h1>
     <p class="lede">
       每个国家/地区是一个方块，<strong>方块的面积正比于该国 iPhone 活跃用户数</strong>，位置按真实地理坐标摆放、再做无重叠松弛。
-      颜色深浅表示 iOS 在当地移动系统中的份额。数据为公开来源推算的量级估计，详见页面底部说明。
+      颜色深浅表示 iOS 在当地移动系统中的份额。<strong>默认只画支持 Apple Pay 的市场</strong>——不支持的国家/地区不会出现在图上，
+      想看全部就点工具栏里的「全部」。数据为公开来源推算的量级估计，详见页面底部说明。
     </p>
 
     <div class="tiles" id="tiles"></div>
@@ -238,8 +239,8 @@
       <button type="button" data-metric="pop" aria-pressed="false">总人口</button>
     </div>
     <div class="seg" id="apseg" role="group" aria-label="按是否支持 Apple Pay 筛选">
-      <button type="button" data-ap="" aria-pressed="true">全部</button>
-      <button type="button" data-ap="1" aria-pressed="false">支持 Apple Pay</button>
+      <button type="button" data-ap="">全部</button>
+      <button type="button" data-ap="1" aria-pressed="true">支持 Apple Pay</button>
       <button type="button" data-ap="0" aria-pressed="false">不支持</button>
     </div>
     <select class="filter" id="langsel" aria-label="按当地主要语言筛选"></select>
@@ -255,7 +256,7 @@
   <div class="mapcard">
     <svg id="map" viewBox="0 0 1600 960" tabindex="0" role="img" aria-labelledby="maptitle mapdesc">
       <title id="maptitle">按 iPhone 用户量缩放的世界方块地图</title>
-      <desc id="mapdesc">每个方块代表一个国家或地区，面积正比于该国 iPhone 活跃用户估计数，颜色深浅表示 iOS 份额。可缩放平移；完整数值见下方数据表。</desc>
+      <desc id="mapdesc">每个方块代表一个国家或地区，面积正比于该国 iPhone 活跃用户估计数，颜色深浅表示 iOS 份额。默认只显示支持 Apple Pay 的市场，可缩放平移；完整数值（含未显示的市场）见下方数据表。</desc>
       <g id="viewport"><g id="squares"></g></g>
     </svg>
     <div class="zoomctl">
@@ -267,7 +268,7 @@
     <div class="tip" id="tip" role="status" aria-live="polite"></div>
   </div>
   <p class="filterinfo" id="filterinfo"></p>
-  <p class="maphint">滚轮或双指可以缩放，按住拖动平移（键盘上 <code>+</code> / <code>-</code> / <code>0</code> 也可以）；把鼠标移到方块上（手机上点一下）看该国明细。上方的开关能把面积换成智能手机用户或总人口，并按 Apple Pay 支持情况、风控档位、当地语言、区域筛选。</p>
+  <p class="maphint">筛掉的国家/地区会直接从图上移走，剩下的重新排布铺满画布——所以切换条件时你看到的是"这批市场自己的世界地图"。滚轮或双指缩放，按住拖动平移（键盘 <code>+</code> / <code>-</code> / <code>0</code> 也行）；鼠标移到方块上（手机点一下）看明细。上方开关还能把面积换成智能手机用户或总人口，并按风控档位、当地语言、区域筛选。</p>
 
   <div class="legends">
     <div class="sizekey-wrap">
@@ -333,9 +334,11 @@
         觉得某个国家的档位不对，直接改 <code>data.js</code> 里的 <code>vc</code> / <code>dr</code> 就行。</p>
       <p>所以这里的数字是<strong>量级估计</strong>，适合做国家之间的横向比较，不适合当作精确统计引用。本页共收录
         <span id="ccount2"></span> 个国家/地区，合计约 <span id="total2"></span> 部在用 iPhone；Apple 官方口径的全球活跃 iPhone 约 15 亿台，差额来自未收录的小市场与模型保守估计。</p>
-      <p>页面上的筛选是"变暗"而不是"移除"：被筛掉的国家仍留在原位，方便你看清被选中的那些在世界上的分布，
-        统计行会实时算出筛选结果占全部收录量的比例。地图支持滚轮/双指缩放与拖拽平移，放大后小国的名字会自动出现，
-        文字大小始终保持屏幕上恒定。</p>
+      <p>页面默认只画<strong>支持 Apple Pay 的 57 个市场</strong>；不支持的国家/地区不会出现在图上，
+        但它们的数据仍然保留在下面的完整数据表里。任何筛选都是"移除"而不是"变暗"：被筛掉的方块从图上消失，
+        剩下的会重新做一次布局并等比放大铺满画布，统计行同时给出当前显示了多少市场、占收录总量的多少。
+        想看全部市场，把工具栏 Apple Pay 那一组切到「全部」即可。地图支持滚轮/双指缩放与拖拽平移，
+        放大后小国的名字会自动出现，文字大小始终保持屏幕上恒定。</p>
       <p>方块布局是 <strong>Demers 方块统计地图</strong>：先把地理中心用 Miller 投影映射到画布，再按 <code>边长 ∝ √用户数</code> 生成方块，最后做迭代松弛消除重叠——所以位置大致保留地理关系，但会为了让面积说话而偏移。</p>
       <p>数据都在 <code>data.js</code> 里（每个国家一行：人口、普及率、iOS 份额、主要语言、Apple Pay 支持与否），
         改完刷新页面即可重新计算面积、排名和所有统计。</p>
@@ -393,9 +396,10 @@
     return { x: lon, y: -1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * phi)) * 180 / Math.PI };
   }
 
-  function computeLayout(metricKey) {
+  function computeLayout(metricKey, subset) {
     var m = METRICS[metricKey];
-    var items = C.map(function (d) {
+    var src = (subset && subset.length) ? subset : C;
+    var items = src.map(function (d) {
       var p = project(d.lat, d.lon);
       return { d: d, v: m.calc(d), px: p.x, py: p.y };
     });
@@ -481,16 +485,20 @@
   var cardEl = mapEl.parentNode;
 
   var state = {
-    metric: "iphone", regions: {}, query: "", lang: "", ap: "", exVc: false, exDr: false,
+    metric: "iphone", regions: {}, query: "", lang: "", ap: "1", exVc: false, exDr: false,
     layout: null, prevLayout: null, nodes: {}, pinned: null,
     k: 1, tx: 0, ty: 0, moved: 0
   };
   var layoutCache = {};
 
-  function getLayout(metric) {
-    if (!layoutCache[metric]) layoutCache[metric] = computeLayout(metric);
-    return layoutCache[metric];
+  // 按「指标 + 可见国家集合」缓存布局：筛掉的国家不参与松弛，剩下的会重新铺满画布
+  function layoutFor(metric, subset) {
+    var list = subset || C;
+    var key = metric + "|" + (list === C ? "*" : list.map(function (d) { return d.i; }).join(","));
+    if (!layoutCache[key]) layoutCache[key] = computeLayout(metric, list);
+    return layoutCache[key];
   }
+  function getLayout(metric) { return layoutFor(metric, C); } // 全量布局：统计口径用
 
   function el(tag, attrs) {
     var n = document.createElementNS(SVGNS, tag);
@@ -569,8 +577,7 @@
 
   // 指标切换时的补间动画（带兜底：无论动画是否被打断，最终一定落到目标布局）
   var anim = null, animTimer = null;
-  function transitionTo(metric) {
-    var to = getLayout(metric);
+  function transitionToLayout(to) {
     state.layout = to;
     if (anim) { cancelAnimationFrame(anim); anim = null; }
     clearTimeout(animTimer);
@@ -730,7 +737,7 @@
 
   /* ---------- Tooltip ---------- */
   function showTip(iso, evt) {
-    var L = getLayout(state.metric);
+    var L = state.layout || getLayout(state.metric);
     var it = null;
     for (var i = 0; i < L.items.length; i++) if (L.items[i].d.i === iso) { it = L.items[i]; break; }
     if (!it) return;
@@ -793,31 +800,47 @@
     return true;
   }
 
-  function applyFilter() {
-    var L = getLayout("iphone"), hit = 0, sum = 0, total = L.total;
-    L.items.forEach(function (it) {
-      var ok = matches(it.d);
-      state.nodes[it.d.i].g.classList.toggle("dim", !ok);
-      if (ok) { hit++; sum += it.v; }
+  function applyFilter() { refreshMap(true); }
+
+  // 筛掉的国家直接从地图上移除（不是变暗），剩下的重新布局铺满画布
+  function refreshMap(animate) {
+    var vis = C.filter(matches), on = {};
+    vis.forEach(function (d) { on[d.i] = 1; });
+    C.forEach(function (d) {
+      var n = state.nodes[d.i], show = !!on[d.i];
+      n.g.classList.toggle("gone", !show);
+      n.g.setAttribute("tabindex", show ? "0" : "-1");
+      n.g.setAttribute("aria-hidden", show ? "false" : "true");
     });
-    var active = state.query.trim() || state.lang || state.ap !== "" || state.exVc || state.exDr ||
-      Object.keys(state.regions).some(function (r) { return state.regions[r]; });
+    updateFilterInfo(vis);
+    if (!vis.length) { renderRank(); return; }
+    var L = layoutFor(state.metric, vis);
+    if (animate) transitionToLayout(L);
+    else { state.layout = L; state.prevLayout = L; paint(L); }
+    renderSizeKey(); renderRank();
+  }
+
+  function updateFilterInfo(vis) {
+    var total = getLayout("iphone").total, sum = 0;
+    vis.forEach(function (d) { sum += METRICS.iphone.calc(d); });
     var box = document.getElementById("filterinfo");
-    if (!active) {
-      box.innerHTML = "共 <b>" + C.length + "</b> 个国家/地区，合计 <b>" + fmt(total) + "</b> iPhone 用户。";
-    } else if (hit === 0) {
-      box.innerHTML = "当前筛选没有匹配的国家/地区。<button type=\"button\" class=\"reset\" id=\"resetf\">清除筛选</button>";
+    var btn = '<button type="button" class="reset" id="resetf">恢复默认视图</button>';
+    if (!vis.length) {
+      box.innerHTML = "当前条件没有匹配的国家/地区，地图是空的。" + btn;
+    } else if (vis.length === C.length) {
+      box.innerHTML = "地图上是全部 <b>" + C.length + "</b> 个国家/地区，合计 <b>" + fmt(total) + "</b> iPhone 用户。" + btn;
     } else {
-      box.innerHTML = "筛选出 <b>" + hit + "</b> / " + C.length + " 个国家/地区，合计 <b>" + fmt(sum) +
-        "</b> iPhone 用户，占全部收录量的 <b>" + pct(sum / total, 1) +
-        "</b>。<button type=\"button\" class=\"reset\" id=\"resetf\">清除筛选</button>";
+      box.innerHTML = "地图上只显示 <b>" + vis.length + "</b> / " + C.length + " 个国家/地区（合计 <b>" +
+        fmt(sum) + "</b> iPhone 用户，占收录总量的 <b>" + pct(sum / total, 1) +
+        "</b>），其余已隐藏。" + btn;
     }
     var rb = document.getElementById("resetf");
     if (rb) rb.addEventListener("click", clearFilters);
   }
 
   function clearFilters() {
-    state.query = ""; state.lang = ""; state.ap = ""; state.regions = {};
+    // 默认视图 = 只显示支持 Apple Pay 的市场
+    state.query = ""; state.lang = ""; state.ap = "1"; state.regions = {};
     state.exVc = false; state.exDr = false;
     Array.prototype.forEach.call(document.querySelectorAll("#riskchips .chip"), function (b) {
       b.setAttribute("aria-pressed", "false");
@@ -828,7 +851,7 @@
       b.setAttribute("aria-pressed", "false");
     });
     Array.prototype.forEach.call(document.querySelectorAll("#apseg button"), function (b) {
-      b.setAttribute("aria-pressed", b.dataset.ap === "" ? "true" : "false");
+      b.setAttribute("aria-pressed", b.dataset.ap === "1" ? "true" : "false");
     });
     syncPreset();
     applyFilter();
@@ -907,7 +930,7 @@
   }
 
   function renderSizeKey() {
-    var L = getLayout(state.metric);
+    var L = state.layout || getLayout(state.metric);
     var box = document.getElementById("sizekey");
     // 图例方块与地图共用同一套 √ 比例：SVG 显示缩放 × 当前地图缩放 —— 所见即所量
     var disp = (mapEl.getBoundingClientRect().width / VW || 0.7) * state.k;
@@ -925,12 +948,17 @@
   }
 
   function renderRank() {
-    var L = getLayout(state.metric);
+    var L = state.layout || getLayout(state.metric);
+    if (!L.items.length) {
+      document.getElementById("rank").innerHTML = "";
+      document.getElementById("ranksub").textContent = "当前条件下没有市场。";
+      return;
+    }
     var top = L.items.slice(0, 20), max = top[0].v;
     document.getElementById("rankmetric").textContent = METRICS[state.metric].label;
     document.getElementById("ranksub").textContent =
       "前 20 名合计 " + fmt(top.reduce(function (a, b) { return a + b.v; }, 0)) +
-      "，占收录总量的 " + pct(top.reduce(function (a, b) { return a + b.v; }, 0) / L.total, 1) + "。";
+      "，占当前地图上市场合计的 " + pct(top.reduce(function (a, b) { return a + b.v; }, 0) / L.total, 1) + "。";
     document.getElementById("rank").innerHTML = top.map(function (it, i) {
       return '<div class="row"><div class="no">' + (i + 1) + '</div><div class="barwrap">' +
         '<div class="name">' + flag(it.d.i) + " " + it.d.n + '</div>' +
@@ -956,9 +984,9 @@
   state.layout = getLayout("iphone");
   state.prevLayout = state.layout;
   paint(state.layout, 1);
-  renderTiles(); renderRegions(); renderLangs(); renderSizeKey(); renderRank(); renderTable();
+  renderTiles(); renderRegions(); renderLangs(); renderTable();
   setTransform(1, 0, 0);
-  applyFilter();
+  refreshMap(false);   // 默认视图：只画支持 Apple Pay 的市场
 
   document.getElementById("riskchips").addEventListener("click", function (e) {
     var b = e.target.closest(".chip"); if (!b) return;
@@ -1006,8 +1034,7 @@
       x.setAttribute("aria-pressed", x === b ? "true" : "false");
     });
     hideTip();
-    transitionTo(m);
-    renderSizeKey(); renderRank();
+    refreshMap(true);
   });
 
   document.getElementById("search").addEventListener("input", function () {
