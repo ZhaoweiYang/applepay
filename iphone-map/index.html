@@ -242,8 +242,8 @@
     <h1>用方块面积看世界的 iPhone 用户</h1>
     <p class="lede">
       每个国家/地区是一个方块，<strong>方块的面积正比于该国 iPhone 活跃用户数</strong>，位置按真实地理坐标摆放、再做无重叠松弛。
-      颜色深浅表示 iOS 在当地移动系统中的份额。<strong>默认只画支持 Apple Pay 的市场</strong>，并且默认把中国大陆、美国、加拿大、巴西、英国
-      这五个体量最大的市场移出地图（它们会把其他市场压得太小）——想看全部，把 Apple Pay 那组切到「全部」、
+      颜色深浅表示 iOS 在当地移动系统中的份额。<strong>默认只画支持 Apple Pay 的市场</strong>，并且默认把中国大陆、美国、巴西、英国
+      这四个体量最大的市场移出地图（它们会把其他市场压得太小）——想看全部，把 Apple Pay 那组切到「全部」、
       在下面那行点「全部恢复」即可。数据为公开来源推算的量级估计，详见页面底部说明。
     </p>
 
@@ -359,8 +359,8 @@
         觉得某个国家的档位不对，直接改 <code>data.js</code> 里的 <code>vc</code> / <code>dr</code> 就行。</p>
       <p>所以这里的数字是<strong>量级估计</strong>，适合做国家之间的横向比较，不适合当作精确统计引用。本页共收录
         <span id="ccount2"></span> 个国家/地区，合计约 <span id="total2"></span> 部在用 iPhone；Apple 官方口径的全球活跃 iPhone 约 15 亿台，差额来自未收录的小市场与模型保守估计。</p>
-      <p>页面默认只画<strong>支持 Apple Pay 的市场</strong>，并且默认排除中国大陆、美国、加拿大、巴西、英国
-        这五个体量最大的市场——中美两家就占了收录用户的四成，留在图上会把其余市场压成小方块。
+      <p>页面默认只画<strong>支持 Apple Pay 的市场</strong>，并且默认排除中国大陆、美国、巴西、英国
+        这四个体量最大的市场——中美两家就占了收录用户的四成，留在图上会把其余市场压成小方块。
         这两层默认都可以随时取消：Apple Pay 那组切「全部」，排除列表点「全部恢复」。
         被移走的国家/地区数据仍然保留在下面的完整数据表里。任何筛选都是"移除"而不是"变暗"：被筛掉的方块从图上消失，
         剩下的会重新做一次布局并等比放大铺满画布，统计行同时给出当前显示了多少市场、占收录总量的多少。
@@ -408,7 +408,7 @@
   function pct(x, digits) { return (x * 100).toFixed(digits === undefined ? 1 : digits) + "%"; }
   var LEVEL = ["低", "中", "高"];
   // 默认就不展示的国家/地区（体量太大会压扁其他市场，想看时在下面那行点回来即可）
-  var DEFAULT_EXCLUDED = ["CN", "US", "CA", "BR", "GB"];
+  var DEFAULT_EXCLUDED = ["CN", "US", "BR", "GB"];
   function flag(iso) {
     return String.fromCodePoint.apply(null, iso.toUpperCase().split("").map(function (ch) {
       return 0x1F1E6 + ch.charCodeAt(0) - 65;
