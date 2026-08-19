@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#0b0b0b" />
+<title>iPhone 用户量世界地图</title>
+<meta name="description" content="用方块面积表示各国 iPhone 用户量的世界地图（Demers 方块统计地图），方块越大代表该国 iPhone 用户越多。" />
+<style>
+  :root {
+    color-scheme: light dark;
+    --surface-0: #f7f7f5;
+    --surface-1: #fcfcfb;
+    --surface-2: #f0efec;
+    --line:      #dedcd6;
+    --line-soft: #eae8e3;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #7a7873;
+    --accent:    #2a78d6;
+    /* 顺序色阶（蓝，浅→深 = iOS 份额低→高）；最浅一级仍与底色保持 2:1 以上对比 */
+    --seq-1: #86b6ef; --seq-2: #6da7ec; --seq-3: #5598e7; --seq-4: #3987e5; --seq-5: #2a78d6;
+    --seq-6: #256abf; --seq-7: #1c5cab; --seq-8: #184f95; --seq-9: #104281; --seq-10:#0d366b;
+    /* 方块上的文字：浅底用深墨，深底用白墨（跟随色阶方向） */
+    --ink-1: #0b0b0b; --ink-2: #0b0b0b; --ink-3: #0b0b0b; --ink-4: #0b0b0b; --ink-5: #0b0b0b;
+    --ink-6: #ffffff; --ink-7: #ffffff; --ink-8: #ffffff; --ink-9: #ffffff; --ink-10:#ffffff;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 30px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --line:      #383835;
+      --line-soft: #2b2b29;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #93928a;
+      --accent:    #3987e5;
+      /* 深色底：色阶反向，份额越高越亮；最深一级仍与底色保持 2:1 以上对比 */
+      --seq-1: #184f95; --seq-2: #1c5cab; --seq-3: #256abf; --seq-4: #2a78d6; --seq-5: #3987e5;
+      --seq-6: #5598e7; --seq-7: #6da7ec; --seq-8: #86b6ef; --seq-9: #9ec5f4; --seq-10:#cde2fb;
+      --ink-1: #ffffff; --ink-2: #ffffff; --ink-3: #ffffff; --ink-4: #ffffff; --ink-5: #0b0b0b;
+      --ink-6: #0b0b0b; --ink-7: #0b0b0b; --ink-8: #0b0b0b; --ink-9: #0b0b0b; --ink-10:#0b0b0b;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 30px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+    background: var(--surface-0);
+    color: var(--text-primary);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 20px 72px; }
+
+  /* ---------- 头部 ---------- */
+  header { margin-bottom: 28px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--text-muted); font-weight: 600; margin: 0 0 10px;
+  }
+  h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.15; margin: 0 0 12px; letter-spacing: -.02em; }
+  .lede { color: var(--text-secondary); font-size: clamp(15px, 2.2vw, 17px); max-width: 62ch; margin: 0; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 26px 0 8px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--line-soft); border-radius: 14px; padding: 14px 16px; }
+  .tile .k { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .tile .v { font-size: 24px; font-weight: 650; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .tile .v small { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-left: 2px; }
+
+  /* ---------- 控件 ---------- */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+    margin: 26px 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line-soft);
+  }
+  .seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
+  .seg button {
+    font: inherit; font-size: 13px; font-weight: 550; color: var(--text-secondary);
+    background: none; border: 0; border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font: inherit; font-size: 12.5px; color: var(--text-secondary); cursor: pointer;
+    background: var(--surface-1); border: 1px solid var(--line); border-radius: 999px; padding: 4px 11px;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .search {
+    font: inherit; font-size: 13px; color: var(--text-primary); background: var(--surface-1);
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 160px; flex: 0 1 200px;
+  }
+  .search:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+
+  /* ---------- 地图 ---------- */
+  .mapcard {
+    position: relative; background: var(--surface-1); border: 1px solid var(--line-soft);
+    border-radius: 18px; padding: 8px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  svg#map { display: block; width: 100%; height: auto; touch-action: manipulation; }
+  .sq { cursor: pointer; transition: opacity .18s ease; }
+  .sq rect { stroke: var(--surface-1); stroke-width: 2; }
+  .sq.dim { opacity: .16; }
+  .sq.hit rect { stroke: var(--text-primary); stroke-width: 2.5; }
+  .sq:focus { outline: none; }
+  .sq:focus-visible rect { stroke: var(--text-primary); stroke-width: 3; }
+  .lbl { font-weight: 620; pointer-events: none; letter-spacing: -.01em; }
+  .val { font-weight: 500; pointer-events: none; font-variant-numeric: tabular-nums; }
+
+  .tip {
+    position: absolute; z-index: 5; pointer-events: none; opacity: 0; transform: translateY(4px);
+    transition: opacity .12s ease, transform .12s ease;
+    background: var(--surface-1); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow); padding: 11px 13px; min-width: 208px; max-width: 260px;
+  }
+  .tip.on { opacity: 1; transform: translateY(0); }
+  .tip h3 { margin: 0 0 2px; font-size: 15px; display: flex; align-items: baseline; gap: 6px; }
+  .tip h3 span.en { font-size: 11.5px; color: var(--text-muted); font-weight: 500; }
+  .tip .big { font-size: 22px; font-weight: 650; letter-spacing: -.01em; margin: 6px 0 8px; font-variant-numeric: tabular-nums; }
+  .tip dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12.5px; }
+  .tip dt { color: var(--text-muted); }
+  .tip dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+  /* ---------- 图例 ---------- */
+  .maphint { color: var(--text-muted); font-size: 12.5px; margin: 10px 2px 0; }
+  .legends { display: flex; flex-wrap: wrap; gap: 22px 40px; margin: 16px 2px 0; align-items: flex-end; }
+  .legend-title { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+  .sizekey { position: relative; margin-right: 96px; }
+  .sizekey .nbox { position: absolute; left: 0; bottom: 0; border: 1.5px solid var(--line); border-radius: 3px; }
+  .sizekey .ncap {
+    position: absolute; font-size: 11.5px; color: var(--text-secondary); white-space: nowrap;
+    transform: translateY(50%); font-variant-numeric: tabular-nums;
+  }
+  .sizekey .ncap::before {
+    content: ""; position: absolute; top: 50%; height: 1px; background: var(--line);
+    width: var(--lead, 6px); left: calc(-1 * var(--lead, 6px) - 4px);
+  }
+  .colorkey .bar { height: 12px; width: 220px; border-radius: 6px; margin-bottom: 5px;
+    background: linear-gradient(90deg, var(--seq-1), var(--seq-3), var(--seq-5), var(--seq-7), var(--seq-10)); }
+  .colorkey .ticks { display: flex; justify-content: space-between; width: 220px; font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+  /* ---------- 排行 ---------- */
+  section { margin-top: 48px; }
+  h2 { font-size: 20px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .sub { color: var(--text-muted); font-size: 13px; margin: 0 0 18px; }
+  .rank { display: grid; gap: 7px; }
+  .row { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: center; }
+  .row .no { font-size: 12px; color: var(--text-muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .row .barwrap { display: flex; align-items: center; gap: 9px; }
+  .row .name { font-size: 13.5px; width: 108px; flex: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .track { flex: 1; height: 14px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+  .row .bar { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+  .row .num { font-size: 12.5px; color: var(--text-secondary); width: 78px; text-align: right; flex: none; font-variant-numeric: tabular-nums; }
+
+  details.table { margin-top: 22px; }
+  details.table summary { cursor: pointer; font-size: 13.5px; color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
+  th, td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  th { color: var(--text-muted); font-weight: 550; position: sticky; top: 0; background: var(--surface-0); }
+  .scroller { max-height: 420px; overflow: auto; border: 1px solid var(--line-soft); border-radius: 12px; padding: 0 12px 8px; }
+
+  .note { background: var(--surface-1); border: 1px solid var(--line-soft); border-radius: 14px; padding: 18px 20px; }
+  .note h3 { margin: 0 0 8px; font-size: 15px; }
+  .note p, .note li { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 8px; }
+  .note ul { padding-left: 18px; margin: 0 0 8px; }
+  .note code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-size: 12.5px; }
+  footer { margin-top: 40px; color: var(--text-muted); font-size: 12.5px; text-align: center; }
+  footer a { color: var(--accent); }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  @media (max-width: 640px) {
+    .wrap { padding: 26px 14px 56px; }
+    .controls { gap: 8px 10px; }
+    .row .name { width: 92px; }
+    .row .num { width: 62px; font-size: 12px; }
+    .colorkey .bar, .colorkey .ticks { width: 180px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Demers 方块统计地图</p>
+    <h1>用方块面积看世界的 iPhone 用户</h1>
+    <p class="lede">
+      每个国家/地区是一个方块，<strong>方块的面积正比于该国 iPhone 活跃用户数</strong>，位置按真实地理坐标摆放、再做无重叠松弛。
+      颜色深浅表示 iOS 在当地移动系统中的份额。数据为公开来源推算的量级估计，详见页面底部说明。
+    </p>
+
+    <div class="tiles" id="tiles"></div>
+  </header>
+
+  <div class="controls">
+    <div class="seg" role="group" aria-label="选择方块面积代表的指标">
+      <button type="button" data-metric="iphone" aria-pressed="true">iPhone 用户</button>
+      <button type="button" data-metric="smart" aria-pressed="false">智能手机用户</button>
+      <button type="button" data-metric="pop" aria-pressed="false">总人口</button>
+    </div>
+    <div class="chips" id="regions" role="group" aria-label="按区域筛选"></div>
+    <input class="search" id="search" type="search" placeholder="搜索国家 / 地区…" aria-label="搜索国家或地区" />
+  </div>
+
+  <div class="mapcard">
+    <svg id="map" viewBox="0 0 1600 960" role="img" aria-labelledby="maptitle mapdesc">
+      <title id="maptitle">按 iPhone 用户量缩放的世界方块地图</title>
+      <desc id="mapdesc">每个方块代表一个国家或地区，面积正比于该国 iPhone 活跃用户估计数，颜色深浅表示 iOS 份额。完整数值见下方数据表。</desc>
+      <g id="squares"></g>
+    </svg>
+    <div class="tip" id="tip" role="status" aria-live="polite"></div>
+  </div>
+  <p class="maphint">把鼠标移到方块上（手机上点一下）查看该国的详细数据；上方的开关可以把面积换成智能手机用户或总人口，看同一张地图如何变形。</p>
+
+  <div class="legends">
+    <div class="sizekey-wrap">
+      <p class="legend-title">方块面积 = <span id="sizekey-metric">iPhone 用户数</span></p>
+      <div class="sizekey" id="sizekey"></div>
+    </div>
+    <div class="colorkey">
+      <p class="legend-title">颜色 = iOS 在当地移动系统中的份额</p>
+      <div class="bar"></div>
+      <div class="ticks"><span>0%</span><span>20%</span><span>40%</span><span>60%+</span></div>
+    </div>
+  </div>
+
+  <section>
+    <h2 id="ranktitle">Top 20 <span id="rankmetric">iPhone 用户</span></h2>
+    <p class="sub" id="ranksub"></p>
+    <div class="rank" id="rank"></div>
+
+    <details class="table">
+      <summary>查看全部 <span id="ccount"></span> 个国家/地区的完整数据表</summary>
+      <div class="scroller">
+        <table>
+          <thead>
+            <tr><th>国家/地区</th><th>区域</th><th>iPhone 用户</th><th>占全球</th><th>iOS 份额</th><th>智能机用户</th><th>人口</th></tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <div class="note">
+      <h3>数据与方法</h3>
+      <p>各国 iPhone 活跃用户数没有官方公开口径，本页用一个可复现的估算模型：</p>
+      <p><code>iPhone 用户 ≈ 人口 × 智能手机普及率 × iOS 份额</code></p>
+      <ul>
+        <li><strong>人口</strong>：联合国 2024–2025 年前后口径。</li>
+        <li><strong>智能手机普及率</strong>：综合 GSMA Intelligence、DataReportal、Newzoo 的国家级数据。</li>
+        <li><strong>iOS 份额</strong>：StatCounter 2025 年前后的移动操作系统份额月度均值，个别小市场按相邻市场推断。</li>
+      </ul>
+      <p>所以这里的数字是<strong>量级估计</strong>，适合做国家之间的横向比较，不适合当作精确统计引用。本页共收录
+        <span id="ccount2"></span> 个国家/地区，合计约 <span id="total2"></span> 部在用 iPhone；Apple 官方口径的全球活跃 iPhone 约 15 亿台，差额来自未收录的小市场与模型保守估计。</p>
+      <p>方块布局是 <strong>Demers 方块统计地图</strong>：先把地理中心用 Miller 投影映射到画布，再按 <code>边长 ∝ √用户数</code> 生成方块，最后做迭代松弛消除重叠——所以位置大致保留地理关系，但会为了让面积说话而偏移。</p>
+      <p>数据都在 <code>data.js</code> 里，改完刷新页面即可重新计算。</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>纯静态页面，无第三方依赖 · <a href="../">返回 Apple Pay 检测工具</a></p>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var C = window.IPHONE_DATA.countries;
+  var VW = 1600, VH = 960, PAD = 18;
+
+  var METRICS = {
+    iphone: { label: "iPhone 用户", calc: function (d) { return d.pop * d.pen * d.ios; }, fill: 0.30 },
+    smart:  { label: "智能手机用户", calc: function (d) { return d.pop * d.pen; },        fill: 0.30 },
+    pop:    { label: "总人口",       calc: function (d) { return d.pop; },                fill: 0.30 }
+  };
+
+  /* ---------- 工具 ---------- */
+  function fmt(v) { // v 单位：百万
+    if (v >= 100) return (v / 100).toFixed(v >= 10000 ? 0 : 2) + " 亿";
+    if (v >= 1) return Math.round(v * 100).toLocaleString("en-US") + " 万";
+    return (v * 100).toFixed(1) + " 万";
+  }
+  function textWidth(str) { // 以 em 计的粗略宽度
+    var w = 0;
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charCodeAt(i);
+      w += (c > 0x2e80) ? 1 : 0.56;
+    }
+    return w;
+  }
+  function pct(x, digits) { return (x * 100).toFixed(digits === undefined ? 1 : digits) + "%"; }
+  function flag(iso) {
+    return String.fromCodePoint.apply(null, iso.toUpperCase().split("").map(function (ch) {
+      return 0x1F1E6 + ch.charCodeAt(0) - 65;
+    }));
+  }
+  function colorStep(ios) { // iOS 份额 0 → 第 1 级，0.70 以上 → 第 10 级
+    var t = Math.max(0, Math.min(1, ios / 0.70));
+    return Math.max(1, Math.min(10, Math.round(t * 9) + 1));
+  }
+
+  /* ---------- 投影 + 布局 ---------- */
+  function project(lat, lon) { // Miller
+    var phi = lat * Math.PI / 180;
+    return { x: lon, y: -1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * phi)) * 180 / Math.PI };
+  }
+
+  function computeLayout(metricKey) {
+    var m = METRICS[metricKey];
+    var items = C.map(function (d) {
+      var p = project(d.lat, d.lon);
+      return { d: d, v: m.calc(d), px: p.x, py: p.y };
+    });
+    var total = items.reduce(function (a, b) { return a + b.v; }, 0);
+    var iw = VW - 2 * PAD, ih = VH - 2 * PAD;
+    var k = Math.sqrt(m.fill * iw * ih / total);
+    items.forEach(function (it) { it.s = k * Math.sqrt(it.v); });
+
+    // 锚点：把投影坐标等比映射进画布
+    var xs = items.map(function (i) { return i.px; }), ys = items.map(function (i) { return i.py; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
+    var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var sc = Math.min(iw / (x1 - x0), ih / (y1 - y0));
+    var ox = PAD + (iw - (x1 - x0) * sc) / 2, oy = PAD + (ih - (y1 - y0) * sc) / 2;
+    items.forEach(function (it) {
+      it.ax = ox + (it.px - x0) * sc;
+      it.ay = oy + (it.py - y0) * sc;
+      it.x = it.ax; it.y = it.ay; // 方块中心
+    });
+
+    // 先画大的：大方块更接近锚点，小国围绕它们让位
+    var order = items.slice().sort(function (a, b) { return b.s - a.s; });
+
+    var ITER = 900, PULL = 0.014, PUSH = 0.55;
+    for (var t = 0; t < ITER; t++) {
+      for (var i = 0; i < order.length; i++) {
+        var a = order[i];
+        a.x += (a.ax - a.x) * PULL;
+        a.y += (a.ay - a.y) * PULL;
+      }
+      for (var i2 = 0; i2 < order.length; i2++) {
+        for (var j = i2 + 1; j < order.length; j++) {
+          var p = order[i2], q = order[j];
+          var dx = q.x - p.x, dy = q.y - p.y;
+          var ow = (p.s + q.s) / 2 + 3 - Math.abs(dx);   // 3px 呼吸间隙
+          var oh = (p.s + q.s) / 2 + 3 - Math.abs(dy);
+          if (ow > 0 && oh > 0) {
+            if (ow < oh) {
+              var mvx = (dx === 0 ? (j % 2 ? 1 : -1) : Math.sign(dx)) * ow * PUSH;
+              var wp = q.s / (p.s + q.s), wq = p.s / (p.s + q.s);
+              p.x -= mvx * wp; q.x += mvx * wq;
+            } else {
+              var mvy = (dy === 0 ? (j % 2 ? 1 : -1) : Math.sign(dy)) * oh * PUSH;
+              var wp2 = q.s / (p.s + q.s), wq2 = p.s / (p.s + q.s);
+              p.y -= mvy * wp2; q.y += mvy * wq2;
+            }
+          }
+        }
+      }
+      for (var b = 0; b < order.length; b++) {
+        var it2 = order[b], h = it2.s / 2;
+        it2.x = Math.max(PAD + h, Math.min(VW - PAD - h, it2.x));
+        it2.y = Math.max(PAD + h, Math.min(VH - PAD - h, it2.y));
+      }
+    }
+
+    // 松弛之后整体等比放大，把画布用满（等比缩放不破坏面积的比例关系）
+    var minx = Infinity, miny = Infinity, maxx = -Infinity, maxy = -Infinity;
+    items.forEach(function (it) {
+      minx = Math.min(minx, it.x - it.s / 2); maxx = Math.max(maxx, it.x + it.s / 2);
+      miny = Math.min(miny, it.y - it.s / 2); maxy = Math.max(maxy, it.y + it.s / 2);
+    });
+    var f = Math.min((VW - 2 * PAD) / (maxx - minx), (VH - 2 * PAD) / (maxy - miny));
+    f = Math.max(1, Math.min(f, 1.8));
+    var cx = (minx + maxx) / 2, cy = (miny + maxy) / 2;
+    items.forEach(function (it) {
+      it.x = VW / 2 + (it.x - cx) * f;
+      it.y = VH / 2 + (it.y - cy) * f;
+      it.s *= f;
+    });
+    k *= f;
+
+    items.sort(function (a, b) { return b.v - a.v; });
+    items.forEach(function (it, idx) { it.rank = idx + 1; it.share = it.v / total; });
+    return { items: items, total: total, k: k, metric: metricKey };
+  }
+
+  /* ---------- 渲染 ---------- */
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var gRoot = document.getElementById("squares");
+  var tipEl = document.getElementById("tip");
+  var mapEl = document.getElementById("map");
+  var cardEl = mapEl.parentNode;
+
+  var state = { metric: "iphone", regions: {}, query: "", layout: null, prevLayout: null, nodes: {}, pinned: null };
+  var layoutCache = {};
+
+  function getLayout(metric) {
+    if (!layoutCache[metric]) layoutCache[metric] = computeLayout(metric);
+    return layoutCache[metric];
+  }
+
+  function el(tag, attrs) {
+    var n = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+
+  function buildSquares() {
+    var L = getLayout("iphone");
+    L.items.forEach(function (it) {
+      var d = it.d;
+      var g = el("g", { class: "sq", tabindex: "0", role: "listitem" });
+      g.setAttribute("aria-label", d.n + "，iPhone 用户约 " + fmt(it.v) + "，iOS 份额 " + pct(d.ios, 0));
+      var step = colorStep(d.ios);
+      var rect = el("rect", { rx: 4, ry: 4, fill: "var(--seq-" + step + ")" });
+      var lbl = el("text", { class: "lbl", "text-anchor": "middle" });
+      var val = el("text", { class: "val", "text-anchor": "middle" });
+      // 浅色方块（份额高的深色模式 / 份额低的浅色模式）用深墨，反之用白墨
+      lbl.setAttribute("fill", "var(--ink-" + step + ")");
+      val.setAttribute("fill", "var(--ink-" + step + ")");
+      val.setAttribute("fill-opacity", "0.72");
+      lbl.textContent = d.n;
+      g.appendChild(rect); g.appendChild(lbl); g.appendChild(val);
+      gRoot.appendChild(g);
+      state.nodes[d.i] = { g: g, rect: rect, lbl: lbl, val: val, d: d };
+
+      g.addEventListener("mouseenter", function (e) { showTip(d.i, e); });
+      g.addEventListener("mousemove", function (e) { moveTip(e); });
+      g.addEventListener("mouseleave", function () { if (!state.pinned) hideTip(); });
+      g.addEventListener("focus", function () { showTip(d.i, null); });
+      g.addEventListener("blur", function () { if (!state.pinned) hideTip(); });
+      g.addEventListener("click", function (e) {
+        e.stopPropagation();
+        state.pinned = state.pinned === d.i ? null : d.i;
+        if (state.pinned) showTip(d.i, e); else hideTip();
+      });
+    });
+    gRoot.setAttribute("role", "list");
+  }
+
+  function paint(L, progress) {
+    L.items.forEach(function (it) {
+      var n = state.nodes[it.d.i];
+      var s = it.s, x = it.x - s / 2, y = it.y - s / 2;
+      n.rect.setAttribute("x", x.toFixed(1));
+      n.rect.setAttribute("y", y.toFixed(1));
+      n.rect.setAttribute("width", s.toFixed(1));
+      n.rect.setAttribute("height", s.toFixed(1));
+      n.rect.setAttribute("rx", Math.min(5, s / 6).toFixed(1));
+
+      // 标签只在放得下时出现：按可用宽度反推字号，小于 10px 就不画
+      var avail = s - 8;
+      var nameW = textWidth(it.d.n);                 // 单位：em
+      var fs = Math.min(26, s * 0.16, avail / nameW);
+      var valText = fmt(it.v);
+      var fs2 = Math.min(18, s * 0.115, avail / textWidth(valText));
+      var showName = fs >= 10;
+      var showVal = showName && fs2 >= 9.5 && s >= 58;
+      n.lbl.style.display = showName ? "" : "none";
+      n.val.style.display = showVal ? "" : "none";
+      if (showName) {
+        n.lbl.setAttribute("font-size", fs.toFixed(1));
+        n.lbl.setAttribute("x", it.x.toFixed(1));
+        n.lbl.setAttribute("y", (it.y + (showVal ? -1 : fs * 0.36)).toFixed(1));
+      }
+      if (showVal) {
+        n.val.setAttribute("font-size", fs2.toFixed(1));
+        n.val.setAttribute("x", it.x.toFixed(1));
+        n.val.setAttribute("y", (it.y + fs2 * 1.45).toFixed(1));
+        n.val.textContent = valText;
+      }
+    });
+  }
+
+  // 指标切换时的补间动画（带兜底：无论动画是否被打断，最终一定落到目标布局）
+  var anim = null, animTimer = null;
+  function transitionTo(metric) {
+    var to = getLayout(metric);
+    state.layout = to;
+    if (anim) { cancelAnimationFrame(anim); anim = null; }
+    clearTimeout(animTimer);
+
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { paint(to, 1); return; }
+
+    // 起点直接读当前画面上的几何，这样连续切换、动画被打断都不会跳
+    var from = {};
+    var prev = state.prevLayout || getLayout("iphone");
+    prev.items.forEach(function (it) { from[it.d.i] = { v: it.v }; });
+    to.items.forEach(function (it) {
+      var r = state.nodes[it.d.i].rect;
+      var w = parseFloat(r.getAttribute("width")) || it.s;
+      var f = from[it.d.i] || (from[it.d.i] = { v: it.v });
+      f.s = w;
+      f.x = (parseFloat(r.getAttribute("x")) || 0) + w / 2;
+      f.y = (parseFloat(r.getAttribute("y")) || 0) + w / 2;
+    });
+    var done = false, start = null, DUR = 620;
+    function finish() {
+      if (done) return;
+      done = true;
+      if (anim) { cancelAnimationFrame(anim); anim = null; }
+      paint(to, 1);
+      state.prevLayout = to;
+    }
+    function frame(ts) {
+      if (done) return;
+      if (start === null) start = ts;
+      var p = Math.min(1, (ts - start) / DUR);
+      var e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+      paint({ items: to.items.map(function (it) {
+        var f = from[it.d.i];
+        return { d: it.d, v: f.v + (it.v - f.v) * e, s: f.s + (it.s - f.s) * e,
+                 x: f.x + (it.x - f.x) * e, y: f.y + (it.y - f.y) * e };
+      }) }, e);
+      if (p < 1) anim = requestAnimationFrame(frame);
+      else finish();
+    }
+    anim = requestAnimationFrame(frame);
+    animTimer = setTimeout(finish, DUR + 150);
+  }
+
+  /* ---------- Tooltip ---------- */
+  function showTip(iso, evt) {
+    var L = getLayout(state.metric);
+    var it = null;
+    for (var i = 0; i < L.items.length; i++) if (L.items[i].d.i === iso) { it = L.items[i]; break; }
+    if (!it) return;
+    var d = it.d, ip = getLayout("iphone");
+    var ipIt = null;
+    for (var j = 0; j < ip.items.length; j++) if (ip.items[j].d.i === iso) { ipIt = ip.items[j]; break; }
+    tipEl.innerHTML =
+      '<h3>' + flag(d.i) + ' ' + d.n + ' <span class="en">' + d.e + '</span></h3>' +
+      '<div class="big">' + fmt(ipIt.v) + '</div>' +
+      '<dl>' +
+      '<dt>全球排名</dt><dd>第 ' + ipIt.rank + ' 位</dd>' +
+      '<dt>占全球</dt><dd>' + pct(ipIt.share) + '</dd>' +
+      '<dt>iOS 份额</dt><dd>' + pct(d.ios, 1) + '</dd>' +
+      '<dt>智能机用户</dt><dd>' + fmt(d.pop * d.pen) + '</dd>' +
+      '<dt>人口</dt><dd>' + fmt(d.pop) + '</dd>' +
+      '<dt>区域</dt><dd>' + d.r + '</dd>' +
+      '</dl>';
+    tipEl.classList.add("on");
+    if (evt) moveTip(evt);
+    else {
+      var r = state.nodes[iso].rect.getBoundingClientRect();
+      var cr = cardEl.getBoundingClientRect();
+      place(r.left - cr.left + r.width / 2, r.top - cr.top);
+    }
+    for (var k in state.nodes) state.nodes[k].g.classList.toggle("hit", k === iso);
+  }
+  function moveTip(evt) {
+    var cr = cardEl.getBoundingClientRect();
+    place(evt.clientX - cr.left, evt.clientY - cr.top);
+  }
+  function place(x, y) {
+    var w = tipEl.offsetWidth, h = tipEl.offsetHeight, cr = cardEl.getBoundingClientRect();
+    var left = Math.max(8, Math.min(cr.width - w - 8, x + 16));
+    var top = y - h - 14;
+    if (top < 8) top = Math.min(cr.height - h - 8, y + 20);
+    tipEl.style.left = left + "px";
+    tipEl.style.top = top + "px";
+  }
+  function hideTip() {
+    tipEl.classList.remove("on");
+    for (var k in state.nodes) state.nodes[k].g.classList.remove("hit");
+  }
+  document.addEventListener("click", function () { state.pinned = null; hideTip(); });
+
+  /* ---------- 筛选 ---------- */
+  function applyFilter() {
+    var q = state.query.trim().toLowerCase();
+    var anyRegion = Object.keys(state.regions).some(function (r) { return state.regions[r]; });
+    C.forEach(function (d) {
+      var okR = !anyRegion || state.regions[d.r];
+      var okQ = !q || d.n.toLowerCase().indexOf(q) >= 0 || d.e.toLowerCase().indexOf(q) >= 0 || d.i.toLowerCase() === q;
+      state.nodes[d.i].g.classList.toggle("dim", !(okR && okQ));
+    });
+  }
+
+  /* ---------- 侧栏：统计块 / 图例 / 排行 / 表格 ---------- */
+  function renderTiles() {
+    var L = getLayout("iphone");
+    var top10 = L.items.slice(0, 10).reduce(function (a, b) { return a + b.v; }, 0);
+    var t = document.getElementById("tiles");
+    var top = L.items[0];
+    var best = C.slice().sort(function (a, b) { return b.ios - a.ios; })[0];
+    t.innerHTML = [
+      ["收录国家/地区", C.length + " <small>个</small>"],
+      ["iPhone 用户合计", fmt(L.total).replace(" ", " <small>") + "</small>"],
+      ["最大市场", flag(top.d.i) + " " + top.d.n + " <small>" + fmt(top.v) + "</small>"],
+      ["Top 10 集中度", pct(top10 / L.total, 1) + " <small>的全球用户</small>"],
+      ["iOS 份额最高", flag(best.i) + " " + best.n + " <small>" + pct(best.ios, 0) + "</small>"]
+    ].map(function (r) {
+      return '<div class="tile"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + "</div></div>";
+    }).join("");
+    document.getElementById("ccount").textContent = C.length;
+    document.getElementById("ccount2").textContent = C.length;
+    document.getElementById("total2").textContent = fmt(L.total);
+  }
+
+  function renderRegions() {
+    var seen = [];
+    C.forEach(function (d) { if (seen.indexOf(d.r) < 0) seen.push(d.r); });
+    var box = document.getElementById("regions");
+    box.innerHTML = seen.map(function (r) {
+      return '<button type="button" class="chip" data-region="' + r + '" aria-pressed="false">' + r + "</button>";
+    }).join("");
+    box.addEventListener("click", function (e) {
+      var b = e.target.closest(".chip"); if (!b) return;
+      var r = b.dataset.region;
+      state.regions[r] = !state.regions[r];
+      b.setAttribute("aria-pressed", state.regions[r] ? "true" : "false");
+      applyFilter();
+    });
+  }
+
+  function renderSizeKey() {
+    var L = getLayout(state.metric);
+    var refs = state.metric === "iphone" ? [50, 10, 2] : [200, 50, 10];
+    var box = document.getElementById("sizekey");
+    // 图例方块与地图共用同一套 √ 比例，再乘以 SVG 的显示缩放比 —— 所见即所量
+    var disp = mapEl.getBoundingClientRect().width / VW || 0.7;
+    var px = refs.map(function (v) { return Math.max(9, L.k * Math.sqrt(v) * disp); });
+    box.style.width = px[0].toFixed(0) + "px";
+    box.style.height = px[0].toFixed(0) + "px";
+    box.innerHTML = refs.map(function (v, i) {
+      var lead = px[0] - px[i] + 8;
+      return '<div class="nbox" style="width:' + px[i].toFixed(0) + "px;height:" + px[i].toFixed(0) + 'px"></div>' +
+        '<span class="ncap" style="bottom:' + px[i].toFixed(0) + "px;left:" + (px[0] + 12).toFixed(0) +
+        "px;--lead:" + lead.toFixed(0) + 'px">' + fmt(v) + "</span>";
+    }).join("");
+    document.getElementById("sizekey-metric").textContent = METRICS[state.metric].label + "数";
+  }
+
+  function renderRank() {
+    var L = getLayout(state.metric);
+    var top = L.items.slice(0, 20), max = top[0].v;
+    document.getElementById("rankmetric").textContent = METRICS[state.metric].label;
+    document.getElementById("ranksub").textContent =
+      "前 20 名合计 " + fmt(top.reduce(function (a, b) { return a + b.v; }, 0)) +
+      "，占收录总量的 " + pct(top.reduce(function (a, b) { return a + b.v; }, 0) / L.total, 1) + "。";
+    document.getElementById("rank").innerHTML = top.map(function (it, i) {
+      return '<div class="row"><div class="no">' + (i + 1) + '</div><div class="barwrap">' +
+        '<div class="name">' + flag(it.d.i) + " " + it.d.n + '</div>' +
+        '<div class="track"><div class="bar" style="width:' + (it.v / max * 100).toFixed(1) + '%"></div></div>' +
+        '<div class="num">' + fmt(it.v) + "</div></div></div>";
+    }).join("");
+  }
+
+  function renderTable() {
+    var L = getLayout("iphone");
+    document.getElementById("tbody").innerHTML = L.items.map(function (it) {
+      var d = it.d;
+      return "<tr><td>" + flag(d.i) + " " + d.n + "</td><td>" + d.r + "</td><td>" + fmt(it.v) +
+        "</td><td>" + pct(it.share) + "</td><td>" + pct(d.ios, 1) + "</td><td>" + fmt(d.pop * d.pen) +
+        "</td><td>" + fmt(d.pop) + "</td></tr>";
+    }).join("");
+  }
+
+  /* ---------- 启动 ---------- */
+  buildSquares();
+  state.layout = getLayout("iphone");
+  state.prevLayout = state.layout;
+  paint(state.layout, 1);
+  renderTiles(); renderRegions(); renderSizeKey(); renderRank(); renderTable();
+
+  document.querySelector(".seg").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-metric]"); if (!b) return;
+    var m = b.dataset.metric;
+    if (m === state.metric) return;
+    state.metric = m;
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function (x) {
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    hideTip();
+    transitionTo(m);
+    renderSizeKey(); renderRank();
+  });
+
+  document.getElementById("search").addEventListener("input", function () {
+    state.query = this.value; applyFilter();
+  });
+
+  var rt;
+  window.addEventListener("resize", function () {
+    clearTimeout(rt); rt = setTimeout(renderSizeKey, 150);
+  });
+})();
+</script>
+</body>
+</html>

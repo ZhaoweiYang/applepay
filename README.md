@@ -82,11 +82,55 @@ A   @   185.199.111.153
 
 完成后在页面填 `merchant.com.example.CoinDecision` 检测即可。注意：生产环境下已注册商户有时会返回 `paymentCredentialStatusUnknown`（未知），属 Apple 已知行为，并不代表没卡。
 
+## iPhone 用户量世界地图
+
+仓库里另外有一个独立的静态页面 **`iphone-map/`**：一张用**方块面积**表示各国 iPhone 用户量的世界地图
+（Demers 方块统计地图 / square cartogram）。
+
+发布后访问：**https://zhaoweiyang.github.io/applepay/iphone-map/**
+
+### 它是怎么画的
+
+- 每个国家/地区一个方块，**面积正比于该国 iPhone 活跃用户数**（边长 ∝ √用户数）。
+- 方块先按地理中心（Miller 投影）落位，再做迭代松弛消除重叠——位置大致保留地理关系，
+  但会为了让面积说话而偏移，所以看起来像"被撑开的世界地图"。
+- 颜色深浅是**顺序色阶**，表示 iOS 在当地移动系统中的份额；浅色/深色模式各自取了一套
+  与背景对比达标的色阶。
+- 支持：切换面积口径（iPhone 用户 / 智能手机用户 / 总人口，带补间动画）、按区域筛选、
+  搜索国家、悬停或点击查看明细、Top 20 排行、完整数据表。
+- 纯静态、零依赖，键盘可访问（方块可 Tab 聚焦），移动端自适应。
+
+### 数据从哪来
+
+各国 iPhone 活跃用户数没有官方公开口径，页面用一个可复现的估算模型：
+
+```
+iPhone 用户 ≈ 人口 × 智能手机普及率 × iOS 份额
+```
+
+- 人口：联合国 2024–2025 年前后口径
+- 智能手机普及率：GSMA Intelligence / DataReportal / Newzoo 的国家级数据
+- iOS 份额：StatCounter 2025 年前后的移动操作系统份额
+
+收录 89 个国家/地区，合计约 10.8 亿部在用 iPhone。**这些是量级估计**，适合做国家之间的横向
+比较，不能当作精确统计引用。所有数字都集中在 `iphone-map/data.js`，改完刷新页面即可重新计算
+面积、排名和统计块。
+
+### 发布这一页
+
+Pages 用的是「Deploy from a branch」，所以这一页要生效，需要在
+**Settings → Pages → Branch** 里选包含 `iphone-map/` 的分支（本分支
+`claude/iphone-users-world-map-hw781e`），或者把本分支合并进当前的发布分支。
+根目录的 Apple Pay 检测页不受影响，两个页面互不干扰。
+
 ## 文件结构
 
 ```
 .
 ├── index.html                                        # 全部页面与检测逻辑（无外部依赖）
+├── iphone-map/
+│   ├── index.html                                    # iPhone 用户量方块世界地图（页面 + 布局算法）
+│   └── data.js                                       # 89 个国家/地区的人口 / 普及率 / iOS 份额
 ├── .nojekyll                                         # 跳过 Jekyll 处理（同时让 .well-known 可被托管）
 ├── CNAME                                             # 自定义域名 daomessage.com
 ├── .well-known/apple-developer-merchantid-domain-association  # Apple 域名验证文件（占位，待替换）
