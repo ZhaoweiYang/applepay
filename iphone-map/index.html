@@ -129,6 +129,23 @@
     border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; max-width: 190px;
   }
   select.filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .excludebar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin: 0 0 16px; font-size: 12.5px; color: var(--text-secondary);
+  }
+  .excludebar .lbl { color: var(--text-muted); }
+  .excludebar .none { color: var(--text-muted); }
+  .xchip {
+    display: inline-flex; align-items: center; gap: 4px; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 3px 4px 3px 10px;
+  }
+  .xchip button {
+    border: 0; background: none; cursor: pointer; color: var(--text-muted);
+    font: inherit; font-size: 13px; line-height: 1; padding: 2px 5px; border-radius: 50%;
+  }
+  .xchip button:hover { color: var(--text-primary); background: var(--line-soft); }
+  .xchip button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; }
   .filterinfo { font-size: 12.5px; color: var(--text-secondary); margin: 10px 2px 0; }
   .filterinfo b { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
   .filterinfo .reset { background: none; border: 0; padding: 0 0 0 8px; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; }
@@ -225,8 +242,9 @@
     <h1>用方块面积看世界的 iPhone 用户</h1>
     <p class="lede">
       每个国家/地区是一个方块，<strong>方块的面积正比于该国 iPhone 活跃用户数</strong>，位置按真实地理坐标摆放、再做无重叠松弛。
-      颜色深浅表示 iOS 在当地移动系统中的份额。<strong>默认只画支持 Apple Pay 的市场</strong>——不支持的国家/地区不会出现在图上，
-      想看全部就点工具栏里的「全部」。数据为公开来源推算的量级估计，详见页面底部说明。
+      颜色深浅表示 iOS 在当地移动系统中的份额。<strong>默认只画支持 Apple Pay 的市场</strong>，并且默认把中国大陆、美国、加拿大、巴西、英国
+      这五个体量最大的市场移出地图（它们会把其他市场压得太小）——想看全部，把 Apple Pay 那组切到「全部」、
+      在下面那行点「全部恢复」即可。数据为公开来源推算的量级估计，详见页面底部说明。
     </p>
 
     <div class="tiles" id="tiles"></div>
@@ -253,6 +271,13 @@
     <input class="search" id="search" type="search" placeholder="搜索国家 / 地区…" aria-label="搜索国家或地区" />
   </div>
 
+  <div class="excludebar">
+    <span class="lbl">不展示的国家/地区：</span>
+    <span id="excludechips"></span>
+    <select class="filter" id="excludesel" aria-label="添加不展示的国家或地区"></select>
+    <button type="button" class="linkbtn" id="clearexclude">全部恢复</button>
+  </div>
+
   <div class="mapcard">
     <svg id="map" viewBox="0 0 1600 960" tabindex="0" role="img" aria-labelledby="maptitle mapdesc">
       <title id="maptitle">按 iPhone 用户量缩放的世界方块地图</title>
@@ -268,7 +293,7 @@
     <div class="tip" id="tip" role="status" aria-live="polite"></div>
   </div>
   <p class="filterinfo" id="filterinfo"></p>
-  <p class="maphint">筛掉的国家/地区会直接从图上移走，剩下的重新排布铺满画布——所以切换条件时你看到的是"这批市场自己的世界地图"。滚轮或双指缩放，按住拖动平移（键盘 <code>+</code> / <code>-</code> / <code>0</code> 也行）；鼠标移到方块上（手机点一下）看明细。上方开关还能把面积换成智能手机用户或总人口，并按风控档位、当地语言、区域筛选。</p>
+  <p class="maphint">筛掉的国家/地区会直接从图上移走，剩下的重新排布铺满画布——所以切换条件时你看到的是"这批市场自己的世界地图"，下面的排行榜也跟着变。<strong>双击任意方块可以把它移出地图</strong>，在地图上方那行点 ✕ 就能放回来。滚轮或双指缩放，按住拖动平移（键盘 <code>+</code> / <code>-</code> / <code>0</code> 也行）；鼠标移到方块上（手机点一下）看明细。上方开关还能把面积换成智能手机用户或总人口，并按风控档位、当地语言、区域筛选。</p>
 
   <div class="legends">
     <div class="sizekey-wrap">
@@ -283,7 +308,7 @@
   </div>
 
   <section>
-    <h2 id="ranktitle">Top 20 <span id="rankmetric">iPhone 用户</span></h2>
+    <h2 id="ranktitle">当前地图 Top <span id="ranktopn">20</span> <span id="rankmetric">iPhone 用户</span></h2>
     <p class="sub" id="ranksub"></p>
     <div class="rank" id="rank"></div>
 
@@ -334,8 +359,10 @@
         觉得某个国家的档位不对，直接改 <code>data.js</code> 里的 <code>vc</code> / <code>dr</code> 就行。</p>
       <p>所以这里的数字是<strong>量级估计</strong>，适合做国家之间的横向比较，不适合当作精确统计引用。本页共收录
         <span id="ccount2"></span> 个国家/地区，合计约 <span id="total2"></span> 部在用 iPhone；Apple 官方口径的全球活跃 iPhone 约 15 亿台，差额来自未收录的小市场与模型保守估计。</p>
-      <p>页面默认只画<strong>支持 Apple Pay 的 57 个市场</strong>；不支持的国家/地区不会出现在图上，
-        但它们的数据仍然保留在下面的完整数据表里。任何筛选都是"移除"而不是"变暗"：被筛掉的方块从图上消失，
+      <p>页面默认只画<strong>支持 Apple Pay 的市场</strong>，并且默认排除中国大陆、美国、加拿大、巴西、英国
+        这五个体量最大的市场——中美两家就占了收录用户的四成，留在图上会把其余市场压成小方块。
+        这两层默认都可以随时取消：Apple Pay 那组切「全部」，排除列表点「全部恢复」。
+        被移走的国家/地区数据仍然保留在下面的完整数据表里。任何筛选都是"移除"而不是"变暗"：被筛掉的方块从图上消失，
         剩下的会重新做一次布局并等比放大铺满画布，统计行同时给出当前显示了多少市场、占收录总量的多少。
         想看全部市场，把工具栏 Apple Pay 那一组切到「全部」即可。地图支持滚轮/双指缩放与拖拽平移，
         放大后小国的名字会自动出现，文字大小始终保持屏幕上恒定。</p>
@@ -380,6 +407,8 @@
   }
   function pct(x, digits) { return (x * 100).toFixed(digits === undefined ? 1 : digits) + "%"; }
   var LEVEL = ["低", "中", "高"];
+  // 默认就不展示的国家/地区（体量太大会压扁其他市场，想看时在下面那行点回来即可）
+  var DEFAULT_EXCLUDED = ["CN", "US", "CA", "BR", "GB"];
   function flag(iso) {
     return String.fromCodePoint.apply(null, iso.toUpperCase().split("").map(function (ch) {
       return 0x1F1E6 + ch.charCodeAt(0) - 65;
@@ -486,6 +515,7 @@
 
   var state = {
     metric: "iphone", regions: {}, query: "", lang: "", ap: "1", exVc: false, exDr: false,
+    excluded: {},
     layout: null, prevLayout: null, nodes: {}, pinned: null,
     k: 1, tx: 0, ty: 0, moved: 0
   };
@@ -532,8 +562,14 @@
       g.addEventListener("blur", function () { if (!state.pinned) hideTip(); });
       g.addEventListener("click", function (e) {
         e.stopPropagation();
+        if (state.moved > 4) return;               // 拖动地图时不当作点击
         state.pinned = state.pinned === d.i ? null : d.i;
         if (state.pinned) showTip(d.i, e); else hideTip();
+      });
+      g.addEventListener("dblclick", function (e) {
+        e.stopPropagation(); e.preventDefault();
+        state.pinned = null; hideTip();
+        exclude(d.i, true);                        // 双击把这个国家/地区移出地图
       });
     });
     gRoot.setAttribute("role", "list");
@@ -788,6 +824,7 @@
 
   /* ---------- 筛选 ---------- */
   function matches(d) {
+    if (state.excluded[d.i]) return false;
     var q = state.query.trim().toLowerCase();
     var anyRegion = false;
     for (var r in state.regions) if (state.regions[r]) { anyRegion = true; break; }
@@ -839,8 +876,11 @@
   }
 
   function clearFilters() {
-    // 默认视图 = 只显示支持 Apple Pay 的市场
+    // 默认视图 = 只显示支持 Apple Pay 的市场，并排除默认的几个大市场
     state.query = ""; state.lang = ""; state.ap = "1"; state.regions = {};
+    state.excluded = {};
+    DEFAULT_EXCLUDED.forEach(function (i) { state.excluded[i] = 1; });
+    renderExcluded();
     state.exVc = false; state.exDr = false;
     Array.prototype.forEach.call(document.querySelectorAll("#riskchips .chip"), function (b) {
       b.setAttribute("aria-pressed", "false");
@@ -854,6 +894,35 @@
       b.setAttribute("aria-pressed", b.dataset.ap === "1" ? "true" : "false");
     });
     syncPreset();
+    applyFilter();
+  }
+
+  function excludeList() {
+    return getLayout("iphone").items.filter(function (it) { return state.excluded[it.d.i]; });
+  }
+
+  function renderExcluded() {
+    var box = document.getElementById("excludechips");
+    var listed = excludeList();
+    box.innerHTML = listed.length
+      ? listed.map(function (it) {
+          return '<span class="xchip">' + flag(it.d.i) + " " + it.d.n +
+            '<button type="button" data-unx="' + it.d.i + '" aria-label="重新显示 ' + it.d.n + '">✕</button></span>';
+        }).join("")
+      : '<span class="none">（无，双击地图上的方块可以把它移出地图）</span>';
+
+    var sel = document.getElementById("excludesel");
+    sel.innerHTML = '<option value="">＋ 添加…</option>' +
+      getLayout("iphone").items.filter(function (it) { return !state.excluded[it.d.i]; })
+        .map(function (it) { return '<option value="' + it.d.i + '">' + it.d.n + "（" + fmt(it.v) + "）</option>"; })
+        .join("");
+    sel.value = "";
+    document.getElementById("clearexclude").style.display = listed.length ? "" : "none";
+  }
+
+  function exclude(iso, on) {
+    if (on) state.excluded[iso] = 1; else delete state.excluded[iso];
+    renderExcluded();
     applyFilter();
   }
 
@@ -955,9 +1024,11 @@
       return;
     }
     var top = L.items.slice(0, 20), max = top[0].v;
+    document.getElementById("ranktopn").textContent = top.length;
     document.getElementById("rankmetric").textContent = METRICS[state.metric].label;
     document.getElementById("ranksub").textContent =
-      "前 20 名合计 " + fmt(top.reduce(function (a, b) { return a + b.v; }, 0)) +
+      "共 " + L.items.length + " 个市场在图上，前 " + top.length + " 名合计 " +
+      fmt(top.reduce(function (a, b) { return a + b.v; }, 0)) +
       "，占当前地图上市场合计的 " + pct(top.reduce(function (a, b) { return a + b.v; }, 0) / L.total, 1) + "。";
     document.getElementById("rank").innerHTML = top.map(function (it, i) {
       return '<div class="row"><div class="no">' + (i + 1) + '</div><div class="barwrap">' +
@@ -984,9 +1055,23 @@
   state.layout = getLayout("iphone");
   state.prevLayout = state.layout;
   paint(state.layout, 1);
-  renderTiles(); renderRegions(); renderLangs(); renderTable();
+  DEFAULT_EXCLUDED.forEach(function (i) { if (state.nodes[i]) state.excluded[i] = 1; });
+  renderTiles(); renderRegions(); renderLangs(); renderExcluded(); renderTable();
   setTransform(1, 0, 0);
-  refreshMap(false);   // 默认视图：只画支持 Apple Pay 的市场
+  refreshMap(false);   // 默认视图：支持 Apple Pay 的市场，减去默认不展示的几个
+
+  document.getElementById("excludesel").addEventListener("change", function () {
+    if (this.value) exclude(this.value, true);
+  });
+  document.getElementById("excludechips").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-unx]"); if (!b) return;
+    exclude(b.dataset.unx, false);
+  });
+  document.getElementById("clearexclude").addEventListener("click", function () {
+    state.excluded = {};
+    renderExcluded();
+    applyFilter();
+  });
 
   document.getElementById("riskchips").addEventListener("click", function (e) {
     var b = e.target.closest(".chip"); if (!b) return;
